@@ -308,6 +308,18 @@ npm run dev
   # 测试新用户
   docker exec -it 1Panel-mysql-KMtw mysql -u gmod_user -pgmod_password gmod_manager     
 
+
+  # 测试 MySQL
+  docker exec -it 1Panel-mysql-KMtw mysql -u gmod_user -pgmod_password -e "SHOW DATABASES;"
+
+  # 应该看到:
+  # +--------------------+
+  # | Database           |
+  # +--------------------+
+  # | gmod_manager       |
+  # | information_schema |
+  # +--------------------+
+
   # 成功进入则说明配置正确
   # 输入 EXIT; 退出
 

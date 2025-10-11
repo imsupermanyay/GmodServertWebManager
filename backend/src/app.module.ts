@@ -30,7 +30,7 @@ import { AuditsModule } from './audits/audits.module';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        autoLoadEntities: true, // 自动加载实体
         synchronize: configService.get('NODE_ENV') === 'development', // 生产环境请使用 migration
         logging: configService.get('NODE_ENV') === 'development',
         charset: 'utf8mb4',
