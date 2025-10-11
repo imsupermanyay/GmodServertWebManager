@@ -38,10 +38,10 @@ services:
       dockerfile: Dockerfile
     container_name: gmod-manager-backend
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 3001
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USERNAME: gmod_user
@@ -56,10 +56,10 @@ services:
       INSTANCES_ROOT: /srv/instances
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock  # Docker socket
-      - /srv/bare:/srv/bare                        # Git bare repos
-      - /srv/allcode:/srv/allcode                  # Git worktrees
-      - /srv/instances:/srv/instances              # Instance data
+      - /var/run/docker.sock:/var/run/docker.sock # Docker socket
+      - /srv/bare:/srv/bare # Git bare repos
+      - /srv/allcode:/srv/allcode # Git worktrees
+      - /srv/instances:/srv/instances # Instance data
     depends_on:
       - mysql
       - redis
@@ -84,6 +84,7 @@ services:
 volumes:
   mysql_data:
   redis_data:
+
 
 networks:
   gmod-network:

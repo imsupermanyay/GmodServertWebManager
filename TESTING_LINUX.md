@@ -183,7 +183,7 @@ vim .env
 
 ```env
 NODE_ENV=development
-PORT=3000
+PORT=3001
 
 # 数据库配置
 DB_TYPE=mysql
@@ -262,7 +262,7 @@ npm install
 npm run start:dev
 
 # 成功标志:
-# 🚀 Application is running on: http://localhost:3000/api
+# 🚀 Application is running on: http://localhost:3001/api
 # ✅ 默认管理员账户已创建: admin / admin123
 ```
 
@@ -365,7 +365,7 @@ ssh root@你的服务器IP
 
 # 开放端口
 sudo ufw allow 5173/tcp   # 前端
-sudo ufw allow 3000/tcp   # 后端
+sudo ufw allow 3001/tcp   # 后端
 sudo ufw allow 3306/tcp   # MySQL (可选,仅用于调试)
 sudo ufw allow 6379/tcp   # Redis (可选,仅用于调试)
 
@@ -438,7 +438,7 @@ EXIT;
 
 ```bash
 # 测试登录
-curl -X POST http://localhost:3000/api/auth/login \
+curl -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}' \
   -c /tmp/cookies.txt
@@ -446,7 +446,7 @@ curl -X POST http://localhost:3000/api/auth/login \
 # 应该返回用户信息的 JSON
 
 # 测试获取用户列表
-curl http://localhost:3000/api/users \
+curl http://localhost:3001/api/users \
   -b /tmp/cookies.txt
 
 # 应该返回用户列表
@@ -559,7 +559,7 @@ npm install
 ```bash
 # 查看端口占用
 sudo netstat -tulpn | grep :5173
-sudo netstat -tulpn | grep :3000
+sudo netstat -tulpn | grep :3001
 
 # 结束占用进程
 sudo kill -9 <PID>
@@ -602,7 +602,7 @@ cd /opt/gmod-manager/frontend
 cat vite.config.ts
 
 # 确保 proxy 配置正确:
-# '/api': 'http://localhost:3000'
+# '/api': 'http://localhost:3001'
 ```
 
 ### 问题 6: 防火墙阻止访问

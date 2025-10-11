@@ -108,7 +108,7 @@ npm install
 npm run start:dev
 ```
 
-后端将在 `http://localhost:3000/api` 启动
+后端将在 `http://localhost:3001/api` 启动
 
 **默认管理员账户**:
 - 用户名: `admin`
@@ -347,7 +347,7 @@ server {
 
     # 后端 API
     location /api {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';

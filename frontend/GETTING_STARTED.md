@@ -20,7 +20,7 @@ npm run dev
 
 ### 3. 确保后端服务运行
 
-确保后端 API 服务在 http://localhost:3000 运行
+确保后端 API 服务在 http://localhost:3001 运行
 
 ## 项目特点
 

@@ -110,7 +110,7 @@ npm run preview
 
 ## 环境配置
 
-默认 API 地址: `http://localhost:3000/api`
+默认 API 地址: `http://localhost:3001/api`
 
 可在 `vite.config.ts` 中修改代理配置:
 
@@ -119,7 +119,7 @@ server: {
   port: 5173,
   proxy: {
     '/api': {
-      target: 'http://localhost:3000',
+      target: 'http://localhost:3001',
       changeOrigin: true
     }
   }

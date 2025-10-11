@@ -41,7 +41,7 @@ async function bootstrap() {
   // 全局前缀
   app.setGlobalPrefix('api');
 
-  const port = configService.get('PORT') || 3000;
+  const port = configService.get('PORT') || 3001;
   await app.listen(port);
 
   console.log(`🚀 Application is running on: http://localhost:${port}/api`);
