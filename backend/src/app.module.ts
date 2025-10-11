@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { InstancesModule } from './instances/instances.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -21,7 +22,14 @@ import { InstancesModule } from './instances/instances.module';
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: true, // 生产环境请设置为 false
       charset: 'utf8mb4',
+      // 添加连接池和超时配置
+      extra: {
+        connectionLimit: 10,
+        connectTimeout: 10000,
+      },
+      logging: true, // 开启 SQL 日志
     }),
+    HealthModule,
     AuthModule,
     UsersModule,
     InstancesModule,

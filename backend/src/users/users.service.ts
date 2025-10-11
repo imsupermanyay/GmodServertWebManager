@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -9,6 +9,8 @@ import { UserRole } from '../common/enums';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
@@ -54,7 +56,15 @@ export class UsersService {
   }
 
   async findByUsername(username: string): Promise<User | undefined> {
-    return this.usersRepository.findOne({ where: { username } });
+    this.logger.log(`查询用户: ${username}`);
+    try {
+      const user = await this.usersRepository.findOne({ where: { username } });
+      this.logger.log(`查询结果: ${user ? `找到用户 ID=${user.id}` : '用户不存在'}`);
+      return user;
+    } catch (error) {
+      this.logger.error(`查询用户失败: ${error.message}`);
+      throw error;
+    }
   }
 
   async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
