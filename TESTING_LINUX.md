@@ -283,6 +283,57 @@ npm install
 # 启动开发服务器
 npm run dev
 
+#需要自己创建数据库
+
+  -- 创建数据库
+  CREATE DATABASE IF NOT EXISTS gmod_manager CHARACTER SET utf8mb4 COLLATE
+  utf8mb4_unicode_ci;
+
+  -- 创建用户（如果已存在会报错，没关系）
+  CREATE USER IF NOT EXISTS 'gmod_user'@'%' IDENTIFIED BY 'gmod_password';
+
+  -- 授权
+  GRANT ALL PRIVILEGES ON gmod_manager.* TO 'gmod_user'@'%';
+  FLUSH PRIVILEGES;
+
+  -- 验证
+  SHOW DATABASES;
+  SELECT User, Host FROM mysql.user WHERE User='gmod_user';
+
+  -- 退出
+  EXIT;
+
+  2. 测试连接
+
+  # 测试新用户
+  docker exec -it 1Panel-mysql-KMtw mysql -u gmod_user -pgmod_password gmod_manager     
+
+  # 成功进入则说明配置正确
+  # 输入 EXIT; 退出
+
+#🔴 配置现有的 Redis
+
+  1. 检查 Redis 是否有密码
+
+  # 测试 Redis 连接
+  docker exec -it 1Panel-redis-R64G redis-cli PING
+
+  # 如果返回 PONG - 说明没有密码 ✅
+  # 如果返回 NOAUTH - 说明有密码，需要找到密码
+
+  2. 如果 Redis 有密码
+
+  # 查看 Redis 容器的启动命令
+  docker inspect 1Panel-redis-R64G | grep -A 10 Cmd
+
+  # 或者查看 1Panel 配置找到密码
+
+  然后在 backend/.env 中设置：
+
+  REDIS_PASSWORD=你的redis密码
+
+  ---
+
 # 成功标志:
 # ➜  Local:   http://localhost:5173/
 # ➜  Network: http://你的服务器IP:5173/
