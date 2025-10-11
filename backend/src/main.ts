@@ -33,9 +33,27 @@ async function bootstrap() {
   );
 
   // CORS 配置
+  const corsOriginsConfig = configService.get<string>('CORS_ORIGIN');
+  const allowedOrigins = corsOriginsConfig
+    ? corsOriginsConfig
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+    : ['*'];
+
   app.enableCors({
-    origin: configService.get('CORS_ORIGIN') || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Set-Cookie'],
+    optionsSuccessStatus: 204,
   });
 
   // 全局前缀
