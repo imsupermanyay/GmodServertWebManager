@@ -1,130 +1,68 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  UseGuards,
-  ParseIntPipe,
-  Request,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
 import { InstancesService } from './instances.service';
-import { AuthGuard } from '../common/guards/auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { UserRole } from '../common/enums/user-role.enum';
 import { CreateInstanceDto } from './dto/create-instance.dto';
 import { UpdateInstanceDto } from './dto/update-instance.dto';
-import { Instance } from '../entities/instance.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../common/enums';
 
 @Controller('instances')
-@UseGuards(AuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class InstancesController {
   constructor(private readonly instancesService: InstancesService) {}
 
+  @Post()
+  @Roles(UserRole.SUPER_ADMIN)
+  create(@Body() createInstanceDto: CreateInstanceDto) {
+    return this.instancesService.create(createInstanceDto);
+  }
+
   @Get()
-  async findAll(@Request() req): Promise<Instance[]> {
+  findAll(@Request() req) {
     return this.instancesService.findAll(req.user.id, req.user.role);
   }
 
   @Get('my')
-  async findMine(@Request() req): Promise<Instance[]> {
-    return this.instancesService.findMine(req.user.id);
+  @Roles(UserRole.ADMIN)
+  getMyInstances(@Request() req) {
+    return this.instancesService.getMyInstances(req.user.id);
   }
 
   @Get(':id')
-  async findOne(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req,
-  ): Promise<Instance> {
-    return this.instancesService.findOne(id, req.user.id, req.user.role);
+  findOne(@Param('id') id: string, @Request() req) {
+    return this.instancesService.findOne(+id, req.user.id, req.user.role);
   }
 
-  @Post()
-  async create(
-    @Body() createDto: CreateInstanceDto,
-    @Request() req,
-  ): Promise<Instance> {
-    return this.instancesService.create(createDto, req.user.id);
-  }
-
-  @Put(':id')
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateDto: UpdateInstanceDto,
-    @Request() req,
-  ): Promise<Instance> {
-    return this.instancesService.update(
-      id,
-      updateDto,
-      req.user.id,
-      req.user.role,
-    );
+  @Patch(':id')
+  @Roles(UserRole.SUPER_ADMIN)
+  update(@Param('id') id: string, @Body() updateInstanceDto: UpdateInstanceDto) {
+    return this.instancesService.update(+id, updateInstanceDto);
   }
 
   @Delete(':id')
-  async remove(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req,
-  ): Promise<void> {
-    return this.instancesService.remove(id, req.user.id, req.user.role);
+  @Roles(UserRole.SUPER_ADMIN)
+  remove(@Param('id') id: string) {
+    return this.instancesService.remove(+id);
   }
 
   @Post(':id/start')
-  async start(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req,
-  ): Promise<Instance> {
-    return this.instancesService.startContainer(id, req.user.id, req.user.role);
+  start(@Param('id') id: string, @Request() req) {
+    return this.instancesService.start(+id, req.user.id, req.user.role);
   }
 
   @Post(':id/stop')
-  async stop(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req,
-  ): Promise<Instance> {
-    return this.instancesService.stopInstance(id, req.user.id, req.user.role);
+  stop(@Param('id') id: string, @Request() req) {
+    return this.instancesService.stop(+id, req.user.id, req.user.role);
   }
 
   @Post(':id/restart')
-  async restart(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req,
-  ): Promise<Instance> {
-    return this.instancesService.restartInstance(
-      id,
-      req.user.id,
-      req.user.role,
-    );
+  restart(@Param('id') id: string, @Request() req) {
+    return this.instancesService.restart(+id, req.user.id, req.user.role);
   }
 
   @Get(':id/logs')
-  async getLogs(
-    @Param('id', ParseIntPipe) id: number,
-    @Query('tail') tail: number = 100,
-    @Request() req,
-  ): Promise<{ logs: string }> {
-    const logs = await this.instancesService.getContainerLogs(
-      id,
-      req.user.id,
-      req.user.role,
-      tail,
-    );
-    return { logs };
-  }
-
-  @Get(':id/status')
-  async getStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req,
-  ): Promise<any> {
-    return this.instancesService.getContainerStatus(
-      id,
-      req.user.id,
-      req.user.role,
-    );
+  getLogs(@Param('id') id: string, @Request() req) {
+    return this.instancesService.getLogs(+id, req.user.id, req.user.role);
   }
 }

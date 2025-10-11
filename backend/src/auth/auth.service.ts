@@ -1,70 +1,50 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
+import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
-import { User } from '../entities/user.entity';
-import { UserRole } from '../common/enums/user-role.enum';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
+    private usersService: UsersService,
+    private jwtService: JwtService,
   ) {}
 
-  /**
-   * 验证用户密码
-   */
-  async validateUser(username: string, password: string): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { username, is_active: true },
-    });
+  async validateUser(username: string, password: string): Promise<any> {
+    const user = await this.usersService.findByUsername(username);
 
     if (!user) {
       throw new UnauthorizedException('用户名或密码错误');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    if (!user.isActive) {
+      throw new UnauthorizedException('账号已被禁用');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
     if (!isPasswordValid) {
       throw new UnauthorizedException('用户名或密码错误');
     }
 
-    return user;
+    const { password: _, ...result } = user;
+    return result;
   }
 
-  /**
-   * 登录
-   */
-  async login(username: string, password: string) {
-    const user = await this.validateUser(username, password);
+  async login(user: any) {
+    const payload = {
+      username: user.username,
+      sub: user.id,
+      role: user.role
+    };
 
     return {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      },
     };
-  }
-
-  /**
-   * 初始化默认管理员账户
-   */
-  async initDefaultAdmin() {
-    const existingAdmin = await this.userRepository.findOne({
-      where: { username: 'admin' },
-    });
-
-    if (!existingAdmin) {
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-      const admin = this.userRepository.create({
-        username: 'admin',
-        email: 'admin@gmod.local',
-        password_hash: hashedPassword,
-        role: UserRole.SUPER_ADMIN,
-        is_active: true,
-      });
-      await this.userRepository.save(admin);
-      console.log('✅ 默认管理员账户已创建: admin / admin123');
-    }
   }
 }

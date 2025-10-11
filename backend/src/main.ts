@@ -1,72 +1,54 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { ConfigService } from '@nestjs/config';
-import * as session from 'express-session';
-import { AuthService } from './auth/auth.service';
+import { UsersService } from './users/users.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
-
-  // Session 配置
-  app.use(
-    session({
-      secret: configService.get('JWT_SECRET') || 'gmod-manager-secret',
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        maxAge: 86400000, // 24小时
-        httpOnly: true,
-        secure: false, // 开发环境设为false,生产环境HTTPS设为true
-      },
-    }),
-  );
 
   // 启用全局验证管道
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    transform: true,
+    forbidNonWhitelisted: true,
+  }));
 
-  // CORS 配置
-  const corsOriginsConfig = configService.get<string>('CORS_ORIGIN');
-  const allowedOrigins = corsOriginsConfig
-    ? corsOriginsConfig
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean)
-    : ['*'];
+  // 启用 CORS
+  // 如果 ALLOWED_ORIGINS 设置为 '*'，则允许所有域名访问（仅开发环境使用）
+  const allowedOrigins = process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173';
 
-  app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+  if (allowedOrigins === '*') {
+    // 允许所有来源（开发环境）
+    app.enableCors({
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    });
+  } else {
+    // 限制特定来源（生产环境推荐）
+    const origins = allowedOrigins.split(',').map(o => o.trim());
+    app.enableCors({
+      origin: (origin, callback) => {
+        if (!origin || origins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('不允许的跨域请求'));
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    });
+  }
 
-      return callback(new Error(`Origin ${origin} not allowed by CORS`));
-    },
-    credentials: true,
-    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['Set-Cookie'],
-    optionsSuccessStatus: 204,
-  });
+  // 初始化超级管理员账号
+  const usersService = app.get(UsersService);
+  await usersService.createSuperAdmin();
 
-  // 全局前缀
-  app.setGlobalPrefix('api');
-
-  const port = configService.get('PORT') || 3001;
+  const port = process.env.PORT || 3001;
   await app.listen(port);
-
-  console.log(`🚀 Application is running on: http://localhost:${port}/api`);
-
-  // 初始化默认管理员账户
-  const authService = app.get(AuthService);
-  await authService.initDefaultAdmin();
+  console.log(`应用程序正在运行于: http://localhost:${port}`);
 }
 
 bootstrap();

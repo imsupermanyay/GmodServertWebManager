@@ -1,56 +1,49 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  UseGuards,
-  ParseIntPipe,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { AuthGuard } from '../common/guards/auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { UserRole } from '../common/enums/user-role.enum';
-import { User } from '../entities/user.entity';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../common/enums';
 
 @Controller('users')
-@UseGuards(AuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Post()
+  @Roles(UserRole.SUPER_ADMIN)
+  create(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto);
+  }
+
   @Get()
   @Roles(UserRole.SUPER_ADMIN)
-  async findAll(): Promise<User[]> {
+  findAll() {
     return this.usersService.findAll();
+  }
+
+  @Get('me')
+  getProfile(@Request() req) {
+    return this.usersService.findOne(req.user.id);
   }
 
   @Get(':id')
   @Roles(UserRole.SUPER_ADMIN)
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<User> {
-    return this.usersService.findOne(id);
+  findOne(@Param('id') id: string) {
+    return this.usersService.findOne(+id);
   }
 
-  @Post()
+  @Patch(':id')
   @Roles(UserRole.SUPER_ADMIN)
-  async create(@Body() data: Partial<User>): Promise<User> {
-    return this.usersService.create(data);
-  }
-
-  @Put(':id')
-  @Roles(UserRole.SUPER_ADMIN)
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() data: Partial<User>,
-  ): Promise<User> {
-    return this.usersService.update(id, data);
+  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(+id, updateUserDto);
   }
 
   @Delete(':id')
   @Roles(UserRole.SUPER_ADMIN)
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
-    return this.usersService.remove(id);
+  remove(@Param('id') id: string) {
+    return this.usersService.remove(+id);
   }
 }

@@ -1,333 +1,277 @@
 <template>
-  <div class="instances-page">
-    <div class="page-header">
-      <h2>实例管理</h2>
-      <el-button type="primary" @click="handleCreate">
-        <el-icon><Plus /></el-icon>
+  <div>
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold text-gray-800">游戏实例管理</h1>
+      <button
+        @click="showCreateModal = true"
+        class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+      >
         创建实例
-      </el-button>
+      </button>
     </div>
 
-    <el-card class="table-card">
-      <el-table :data="instances" v-loading="loading" style="width: 100%">
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="名称" width="200" />
-        <el-table-column label="状态" width="120">
-          <template #default="{ row }">
-            <StatusBadge :status="row.status" />
-          </template>
-        </el-table-column>
-        <el-table-column prop="port" label="端口" width="100" />
-        <el-table-column prop="gamemode" label="游戏模式" width="150" />
-        <el-table-column prop="map" label="地图" width="150" />
-        <el-table-column prop="maxPlayers" label="最大玩家" width="100" />
-        <el-table-column label="在线" width="100">
-          <template #default="{ row }">
-            <span v-if="row.status === 'running'">
-              {{ row.players || 0 }} / {{ row.maxPlayers }}
-            </span>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" fixed="right" width="320">
-          <template #default="{ row }">
-            <el-button
-              v-if="row.status === 'stopped'"
-              type="success"
-              size="small"
-              @click="handleStart(row)"
-            >
-              启动
-            </el-button>
-            <el-button
-              v-if="row.status === 'running'"
-              type="warning"
-              size="small"
-              @click="handleStop(row)"
-            >
-              停止
-            </el-button>
-            <el-button
-              v-if="row.status === 'running'"
-              type="primary"
-              size="small"
-              @click="handleRestart(row)"
-            >
-              重启
-            </el-button>
-            <el-button type="info" size="small" @click="handleEdit(row)">
-              编辑
-            </el-button>
-            <el-button type="danger" size="small" @click="handleDelete(row)">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+    <!-- 实例列表 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div
+        v-for="instance in instances"
+        :key="instance.id"
+        class="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition"
+      >
+        <div class="flex justify-between items-start mb-4">
+          <h3 class="text-lg font-bold text-gray-800">{{ instance.name }}</h3>
+          <span
+            class="px-2 py-1 rounded-full text-xs"
+            :class="getStatusClass(instance.status)"
+          >
+            {{ getStatusText(instance.status) }}
+          </span>
+        </div>
 
-    <!-- 创建/编辑实例对话框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="isEdit ? '编辑实例' : '创建实例'"
-      width="600px"
-    >
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
-        <el-form-item label="实例名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入实例名称" />
-        </el-form-item>
-        <el-form-item label="安装路径" prop="path">
-          <el-input v-model="form.path" placeholder="例如: D:/GmodServer" />
-        </el-form-item>
-        <el-form-item label="端口" prop="port">
-          <el-input-number v-model="form.port" :min="1" :max="65535" />
-        </el-form-item>
-        <el-form-item label="最大玩家数" prop="maxPlayers">
-          <el-input-number v-model="form.maxPlayers" :min="1" :max="128" />
-        </el-form-item>
-        <el-form-item label="游戏模式" prop="gamemode">
-          <el-input v-model="form.gamemode" placeholder="例如: sandbox" />
-        </el-form-item>
-        <el-form-item label="地图" prop="map">
-          <el-input v-model="form.map" placeholder="例如: gm_flatgrass" />
-        </el-form-item>
-        <el-form-item label="创意工坊合集">
-          <el-input v-model="form.workshopCollection" placeholder="创意工坊合集ID(可选)" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">
-          确定
-        </el-button>
-      </template>
-    </el-dialog>
+        <div class="space-y-2 text-sm text-gray-600 mb-4">
+          <p><span class="font-medium">Docker ID:</span> {{ instance.dockerId || '未设置' }}</p>
+          <p><span class="font-medium">容器名:</span> {{ instance.containerName || '未设置' }}</p>
+          <p><span class="font-medium">管理员:</span> {{ instance.admin?.username || '未分配' }}</p>
+        </div>
+
+        <div class="flex space-x-2">
+          <button
+            @click="editInstance(instance)"
+            class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+          >
+            编辑
+          </button>
+          <button
+            @click="deleteInstance(instance.id)"
+            class="flex-1 px-3 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+          >
+            删除
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 创建实例模态框 -->
+    <div v-if="showCreateModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-8 w-full max-w-md">
+        <h3 class="text-xl font-bold mb-4">创建游戏实例</h3>
+        <form @submit.prevent="createInstance">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">实例名称</label>
+            <input
+              v-model="createForm.name"
+              type="text"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="例如: gmod-server-1"
+            />
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">宿主机目录（可选）</label>
+            <input
+              v-model="createForm.hostDirectory"
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="例如: /srv/gmod/server1"
+            />
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">容器目录（可选）</label>
+            <input
+              v-model="createForm.containerDirectory"
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="例如: /app/garrysmod"
+            />
+          </div>
+          <div class="flex justify-end space-x-3">
+            <button
+              type="button"
+              @click="showCreateModal = false"
+              class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              创建
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 编辑实例模态框 -->
+    <div v-if="showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-8 w-full max-w-md">
+        <h3 class="text-xl font-bold mb-4">编辑实例</h3>
+        <form @submit.prevent="updateInstance">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">实例名称</label>
+            <input
+              v-model="editForm.name"
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">宿主机目录</label>
+            <input
+              v-model="editForm.hostDirectory"
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">容器目录</label>
+            <input
+              v-model="editForm.containerDirectory"
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">分配管理员</label>
+            <select
+              v-model="editForm.adminId"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option :value="null">不分配</option>
+              <option v-for="user in adminUsers" :key="user.id" :value="user.id">
+                {{ user.username }}
+              </option>
+            </select>
+          </div>
+          <div class="flex justify-end space-x-3">
+            <button
+              type="button"
+              @click="showEditModal = false"
+              class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              保存
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import StatusBadge from '@/components/StatusBadge.vue'
-import {
-  getAllInstances,
-  createInstance,
-  updateInstance,
-  deleteInstance,
-  startInstance,
-  stopInstance,
-  restartInstance,
-  type Instance
-} from '@/api/instances'
+<script setup>
+import { ref, onMounted } from 'vue'
+import { instancesAPI, usersAPI } from '../../api'
 
-const loading = ref(false)
-const instances = ref<Instance[]>([])
-const dialogVisible = ref(false)
-const isEdit = ref(false)
-const submitting = ref(false)
-const formRef = ref<FormInstance>()
-
-const form = reactive({
-  id: 0,
+const instances = ref([])
+const adminUsers = ref([])
+const showCreateModal = ref(false)
+const showEditModal = ref(false)
+const createForm = ref({
   name: '',
-  path: '',
-  port: 27015,
-  maxPlayers: 16,
-  gamemode: 'sandbox',
-  map: 'gm_flatgrass',
-  workshopCollection: ''
+  hostDirectory: '',
+  containerDirectory: ''
+})
+const editForm = ref({
+  id: null,
+  name: '',
+  hostDirectory: '',
+  containerDirectory: '',
+  adminId: null
 })
 
-const rules = {
-  name: [{ required: true, message: '请输入实例名称', trigger: 'blur' }],
-  path: [{ required: true, message: '请输入安装路径', trigger: 'blur' }],
-  port: [{ required: true, message: '请输入端口', trigger: 'blur' }],
-  maxPlayers: [{ required: true, message: '请输入最大玩家数', trigger: 'blur' }],
-  gamemode: [{ required: true, message: '请输入游戏模式', trigger: 'blur' }],
-  map: [{ required: true, message: '请输入地图', trigger: 'blur' }]
+const getStatusClass = (status) => {
+  const classes = {
+    RUNNING: 'bg-green-100 text-green-800',
+    STOPPED: 'bg-gray-100 text-gray-800',
+    RESTARTING: 'bg-yellow-100 text-yellow-800',
+    ERROR: 'bg-red-100 text-red-800'
+  }
+  return classes[status] || 'bg-gray-100 text-gray-800'
+}
+
+const getStatusText = (status) => {
+  const texts = {
+    RUNNING: '运行中',
+    STOPPED: '已停止',
+    RESTARTING: '重启中',
+    ERROR: '错误'
+  }
+  return texts[status] || status
 }
 
 const loadInstances = async () => {
-  loading.value = true
   try {
-    instances.value = await getAllInstances()
+    const response = await instancesAPI.getAll()
+    instances.value = response.data
   } catch (error) {
-    console.log("加载实例失败",error)
-    ElMessage.error('加载实例列表失败')
-  } finally {
-    loading.value = false
+    alert('加载实例列表失败')
   }
 }
 
-const handleCreate = () => {
-  isEdit.value = false
-  form.id = 0
-  form.name = ''
-  form.path = ''
-  form.port = 27015
-  form.maxPlayers = 16
-  form.gamemode = 'sandbox'
-  form.map = 'gm_flatgrass'
-  form.workshopCollection = ''
-  dialogVisible.value = true
-}
-
-const handleEdit = (row: Instance) => {
-  isEdit.value = true
-  form.id = row.id
-  form.name = row.name
-  form.path = row.path
-  form.port = row.port
-  form.maxPlayers = row.maxPlayers
-  form.gamemode = row.gamemode
-  form.map = row.map
-  form.workshopCollection = row.workshopCollection || ''
-  dialogVisible.value = true
-}
-
-const handleSubmit = async () => {
-  if (!formRef.value) return
-
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return
-
-    submitting.value = true
-    try {
-      const data: any = {
-        name: form.name,
-        path: form.path,
-        port: form.port,
-        maxPlayers: form.maxPlayers,
-        gamemode: form.gamemode,
-        map: form.map
-      }
-      if (form.workshopCollection) {
-        data.workshopCollection = form.workshopCollection
-      }
-
-      if (isEdit.value) {
-        await updateInstance(form.id, data)
-        ElMessage.success('更新实例成功')
-      } else {
-        await createInstance(data)
-        ElMessage.success('创建实例成功')
-      }
-      dialogVisible.value = false
-      loadInstances()
-    } catch (error) {
-      ElMessage.error(isEdit.value ? '更新实例失败' : '创建实例失败')
-    } finally {
-      submitting.value = false
-    }
-  })
-}
-
-const handleDelete = async (row: Instance) => {
+const loadAdminUsers = async () => {
   try {
-    await ElMessageBox.confirm(`确定要删除实例 "${row.name}" 吗?`, '确认删除', {
-      type: 'warning'
-    })
-
-    await deleteInstance(row.id)
-    ElMessage.success('删除实例成功')
-    loadInstances()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除实例失败')
-    }
-  }
-}
-
-const handleStart = async (row: Instance) => {
-  try {
-    await startInstance(row.id)
-    ElMessage.success('实例启动成功')
-    loadInstances()
+    const response = await usersAPI.getAll()
+    adminUsers.value = response.data.filter(u => u.role === 'ADMIN')
   } catch (error) {
-    ElMessage.error('实例启动失败')
+    console.error('加载管理员列表失败')
   }
 }
 
-const handleStop = async (row: Instance) => {
+const createInstance = async () => {
   try {
-    await ElMessageBox.confirm(`确定要停止实例 "${row.name}" 吗?`, '确认操作', {
-      type: 'warning'
-    })
-
-    await stopInstance(row.id)
-    ElMessage.success('实例停止成功')
-    loadInstances()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error('实例停止失败')
-    }
+    await instancesAPI.create(createForm.value)
+    showCreateModal.value = false
+    createForm.value = { name: '', hostDirectory: '', containerDirectory: '' }
+    await loadInstances()
+    alert('创建成功')
+  } catch (error) {
+    alert(error.response?.data?.message || '创建失败')
   }
 }
 
-const handleRestart = async (row: Instance) => {
-  try {
-    await ElMessageBox.confirm(`确定要重启实例 "${row.name}" 吗?`, '确认操作', {
-      type: 'warning'
-    })
+const editInstance = (instance) => {
+  editForm.value = {
+    id: instance.id,
+    name: instance.name,
+    hostDirectory: instance.hostDirectory || '',
+    containerDirectory: instance.containerDirectory || '',
+    adminId: instance.adminId || null
+  }
+  showEditModal.value = true
+}
 
-    await restartInstance(row.id)
-    ElMessage.success('实例重启成功')
-    loadInstances()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error('实例重启失败')
-    }
+const updateInstance = async () => {
+  try {
+    const { id, ...data } = editForm.value
+    await instancesAPI.update(id, data)
+    showEditModal.value = false
+    await loadInstances()
+    alert('更新成功')
+  } catch (error) {
+    alert(error.response?.data?.message || '更新失败')
+  }
+}
+
+const deleteInstance = async (id) => {
+  if (!confirm('确定要删除这个实例吗？')) return
+
+  try {
+    await instancesAPI.delete(id)
+    await loadInstances()
+    alert('删除成功')
+  } catch (error) {
+    alert(error.response?.data?.message || '删除失败')
   }
 }
 
 onMounted(() => {
   loadInstances()
+  loadAdminUsers()
 })
 </script>
-
-<style scoped>
-.instances-page {
-  width: 100%;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.page-header h2 {
-  margin: 0;
-  font-size: 24px;
-  color: #ffffff;
-}
-
-.table-card {
-  background-color: #1f1f1f;
-  border: 1px solid #2d2d2d;
-}
-
-:deep(.el-table) {
-  background-color: #1f1f1f;
-  color: #ffffff;
-}
-
-:deep(.el-table th.el-table__cell) {
-  background-color: #2d2d2d;
-  color: #ffffff;
-}
-
-:deep(.el-table tr) {
-  background-color: #1f1f1f;
-}
-
-:deep(.el-table td.el-table__cell) {
-  border-bottom: 1px solid #2d2d2d;
-}
-
-:deep(.el-table__body tr:hover > td) {
-  background-color: #2d2d2d !important;
-}
-</style>

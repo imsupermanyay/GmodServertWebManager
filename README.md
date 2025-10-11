@@ -1,434 +1,253 @@
-# GMOD 服务器运维与管理平台
+# GMOD 服务器管理系统
 
-> 一套完整的 GMOD 游戏服务器自动化运维管理系统,支持 Docker 容器化部署、Git 代码自动同步、实例生命周期管理和审计追踪。
+这是一个基于 Vue3 + NestJS + MySQL + Docker 的 GMOD 服务器管理系统。
 
-## 📋 项目简介
+## 功能特性
 
-这是一个为 Garry's Mod (GMOD) 游戏服务器设计的 Web 管理平台,实现了:
+### 角色系统
+- **超级管理员 (SUPER_ADMIN)**: 拥有所有权限
+  - 创建和管理普通管理员账号
+  - 创建、编辑、删除游戏实例
+  - 分配实例给普通管理员
 
-- ✅ **双角色权限体系**: 超级管理员(A) 和 服务器管理员(B)
-- ✅ **Docker 容器化**: 自动创建和管理 GMOD 服务器容器
-- ✅ **Git 自动部署**: 通过 Gitea Webhook 实现代码推送自动同步
-- ✅ **Worktree 机制**: 多分支同时部署,支持多实例共享代码
-- ✅ **任务队列**: 使用 BullMQ 处理异步任务,防止阻塞
-- ✅ **实时日志**: WebSocket 实时查看容器日志
-- ✅ **审计追踪**: 完整记录所有操作历史
+- **普通管理员 (ADMIN)**: 管理分配的实例
+  - 查看自己管理的游戏实例
+  - 启动、停止、重启实例
+  - 查看实例控制台日志
 
-## 🏗️ 技术架构
+### 主要功能
+- ✅ JWT 身份认证
+- ✅ 用户角色权限管理
+- ✅ Docker 容器集成
+- ✅ 游戏实例生命周期管理
+- ✅ 实时日志查看
+- ✅ 响应式 UI 设计
+
+## 技术栈
 
 ### 后端
-- **框架**: NestJS (Node.js + TypeScript)
-- **数据库**: MySQL 8.0
-- **ORM**: TypeORM
-- **队列**: BullMQ + Redis
-- **容器**: Docker (通过 dockerode SDK)
+- NestJS (Node.js 框架)
+- TypeScript
+- TypeORM
+- MySQL
+- JWT 认证
+- Dockerode (Docker API)
 
 ### 前端
-- **框架**: Vue 3 + TypeScript
-- **构建**: Vite 5
-- **UI**: Element Plus
-- **状态**: Pinia
-- **路由**: Vue Router 4
-- **HTTP**: Axios
+- Vue 3
+- Vue Router
+- Pinia (状态管理)
+- TailwindCSS
+- Axios
 
-## 📁 项目结构
-
-```
-GmodServerManager/
-├── backend/                 # 后端 NestJS 项目
-│   ├── src/
-│   │   ├── auth/           # 认证模块
-│   │   ├── users/          # 用户管理
-│   │   ├── instances/      # 实例管理 + Docker
-│   │   ├── repos/          # 仓库管理
-│   │   ├── bindings/       # 绑定管理 (Git worktree)
-│   │   ├── jobs/           # 任务队列
-│   │   ├── webhooks/       # Webhook 接收
-│   │   ├── audits/         # 审计日志
-│   │   ├── entities/       # 数据库实体
-│   │   └── common/         # 公共模块
-│   └── package.json
-│
-├── frontend/               # 前端 Vue3 项目
-│   ├── src/
-│   │   ├── api/           # API 接口
-│   │   ├── stores/        # Pinia 状态管理
-│   │   ├── router/        # 路由配置
-│   │   ├── views/         # 页面组件
-│   │   ├── layouts/       # 布局组件
-│   │   └── components/    # 公共组件
-│   └── package.json
-│
-├── docker-compose.yml      # Docker Compose 配置
-└── README.md              # 本文档
-```
-
-## 🚀 快速开始
+## 快速开始
 
 ### 前置要求
+- Node.js 18+
+- MySQL 8.0+
+- Docker (用于容器管理)
 
-- Node.js >= 18.0
-- Docker + Docker Compose
-- MySQL 8.0 (或使用 Docker Compose 自动启动)
-- Redis (或使用 Docker Compose 自动启动)
-- Git
+### 安装依赖
 
-### 1. 克隆项目
-
-```bash
-git clone <your-repo-url>
-cd GmodServerManager
-```
-
-### 2. 启动基础服务 (MySQL + Redis)
-
-```bash
-docker-compose up -d mysql redis
-```
-
-### 3. 配置后端
-
-```bash
+#### 后端
+\`\`\`bash
 cd backend
-
-# 复制环境变量配置
-cp .env.example .env
-
-# 编辑 .env 文件,配置数据库连接
-# DB_HOST=localhost
-# DB_PORT=3306
-# DB_USERNAME=gmod_user
-# DB_PASSWORD=gmod_password
-# DB_DATABASE=gmod_manager
-
-# 安装依赖
 npm install
+\`\`\`
 
-# 启动开发服务器
-npm run start:dev
+#### 前端
+\`\`\`bash
+cd frontend
+npm install
+\`\`\`
+
+### 配置环境变量
+
+#### 快速配置（推荐）
+
+使用自动配置脚本快速设置：
+
+**Windows:**
+```bash
+setup-cors.bat
 ```
 
-后端将在 `http://localhost:3001/api` 启动
+**Linux/Mac:**
+```bash
+chmod +x setup-cors.sh
+./setup-cors.sh
+```
 
-**默认管理员账户**:
+#### 手动配置
+
+##### 后端配置 (根目录 `.env`)
+
+\`\`\`env
+# 数据库配置
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=root
+DB_PASSWORD=password
+DB_DATABASE=gmod_manager
+
+# JWT 配置
+JWT_SECRET=your-secret-key
+JWT_EXPIRATION=24h
+
+# 超级管理员默认账号
+SUPER_ADMIN_USERNAME=admin
+SUPER_ADMIN_PASSWORD=admin123
+
+# CORS 跨域配置 - 允许的前端地址（多个地址用逗号分隔）
+# 本地开发示例
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
+# 生产环境示例（部署到服务器时修改为实际域名）
+# ALLOWED_ORIGINS=https://yourdomain.com,http://your-server-ip
+\`\`\`
+
+#### 前端配置 (frontend/.env)
+
+\`\`\`env
+# 后端 API 地址
+# 本地开发时使用本地后端
+VITE_API_BASE_URL=http://localhost:3001
+
+# 部署到服务器时，修改为后端服务器地址
+# VITE_API_BASE_URL=http://your-server-ip:3001
+\`\`\`
+
+### 启动应用
+
+#### 开发模式
+
+后端:
+\`\`\`bash
+cd backend
+npm run start:dev
+\`\`\`
+
+前端:
+\`\`\`bash
+cd frontend
+npm run dev
+\`\`\`
+
+#### 使用 Docker Compose
+
+\`\`\`bash
+docker-compose up -d
+\`\`\`
+
+## 默认账号
+
 - 用户名: `admin`
 - 密码: `admin123`
+- 角色: 超级管理员
 
-### 4. 配置前端
+## 跨域配置说明
 
-```bash
-cd frontend
+本系统已经配置好跨域支持，适用于以下场景：
 
-# 安装依赖
-npm install
+### 场景1: 本地开发（前后端都在本地）
+无需特殊配置，默认即可使用。
 
-# 启动开发服务器
-npm run dev
-```
+### 场景2: 前端本地，后端在服务器
+1. 修改前端配置 `frontend/.env`:
+   \`\`\`env
+   VITE_API_BASE_URL=http://your-server-ip:3001
+   \`\`\`
 
-前端将在 `http://localhost:5173` 启动
+2. 修改后端配置 `.env`，添加本地前端地址到 CORS 白名单:
+   \`\`\`env
+   ALLOWED_ORIGINS=http://localhost:5173,http://your-local-ip:5173
+   \`\`\`
 
-### 5. 访问系统
+3. 启动前端:
+   \`\`\`bash
+   cd frontend
+   npm run dev
+   \`\`\`
 
-打开浏览器访问: `http://localhost:5173`
+### 场景3: 前后端都部署到服务器
+1. 使用 Docker Compose 部署，nginx 会自动处理跨域
+2. 或者配置后端 CORS 白名单为前端域名
 
-使用默认管理员账户登录。
+### CORS 配置原理
+- 后端使用 `ALLOWED_ORIGINS` 环境变量控制允许的前端地址
+- 前端使用 `VITE_API_BASE_URL` 指定后端 API 地址
+- 支持多个域名，用逗号分隔
+- 开发环境自动支持 localhost 和 127.0.0.1
 
-## 📖 核心功能
+## 项目结构
 
-### 超级管理员 (A 角色)
+\`\`\`
+GmodServerManager/
+├── backend/                 # 后端服务
+│   ├── src/
+│   │   ├── auth/           # 认证模块
+│   │   ├── users/          # 用户模块
+│   │   ├── instances/      # 实例模块
+│   │   └── common/         # 公共模块
+│   ├── Dockerfile
+│   └── package.json
+├── frontend/               # 前端应用
+│   ├── src/
+│   │   ├── views/         # 页面组件
+│   │   ├── components/    # 公共组件
+│   │   ├── stores/        # 状态管理
+│   │   ├── api/          # API 接口
+│   │   └── router/       # 路由配置
+│   ├── Dockerfile
+│   └── package.json
+├── docker-compose.yml
+├── .env
+└── README.md
+\`\`\`
 
-#### 1. 用户管理
-- 创建/编辑/删除管理员账户
-- 分配角色权限
-- 查看用户管理的实例
+## API 端点
 
-#### 2. 实例管理
-- **创建实例**: 指定端口、地图、游戏模式、最大玩家数
-- **Docker 控制**: 启动/停止/重启容器
-- **批量操作**: 同时管理多个实例
-- **实时监控**: 查看实例状态和资源占用
+### 认证
+- POST `/api/auth/login` - 用户登录
 
-#### 3. 仓库管理
-- **登记 Gitea 仓库**: 录入仓库 HTTP/SSH 地址
-- **配置 Webhook**: 自动生成 Webhook URL 和 Secret
-- **分支管理**: 查看和操作不同分支
-
-#### 4. 绑定管理
-- **多对多绑定**: 一个分支可绑定多个实例
-- **批量绑定**: 选择多个实例一键绑定到同一分支
-- **自动同步**: Gitea Push 事件触发代码更新
-- **软链接管理**: 自动创建和刷新 symbolic link
-
-#### 5. 审计日志
-- 查看所有用户操作记录
-- 追踪 Webhook 触发历史
-- 导出审计报告
-
-### 服务器管理员 (B 角色)
-
-#### 1. 我的实例
-- 查看自己管理的实例列表
-- 启动/停止/重启实例
-- 查看实例状态和配置
-
-#### 2. 实例详情
-- **实时日志**: WebSocket 实时流式查看容器日志
-- **日志搜索**: 关键词搜索和过滤
-- **日志下载**: 导出历史日志文件
-
-#### 3. 启动项配置
-- 修改游戏模式、地图
-- 调整最大玩家数
-- 配置端口映射
-- 一键重启生效
-
-## 🔧 核心工作流程
-
-### 代码自动部署流程
-
-```
-1. 开发者推送代码到 Gitea (分支: DEVSERVER)
-   ↓
-2. Gitea 触发 Webhook -> POST /api/webhooks/gitea
-   ↓
-3. 后端验证 HMAC-SHA256 签名
-   ↓
-4. 投递 GIT_SYNC 任务到 BullMQ 队列
-   ↓
-5. Worker 执行:
-   - git fetch origin DEVSERVER
-   - cd /srv/allcode/repo1/DEVSERVER
-   - git reset --hard origin/DEVSERVER
-   ↓
-6. 查询绑定表: 哪些实例绑定了 repo1/DEVSERVER
-   ↓
-7. 如果实例开启了 auto_restart_on_code_change:
-   - 投递 INSTANCE_RESTART 任务
-   - 依次重启相关实例
-```
-
-### Git Worktree 工作原理
-
-```bash
-# 1. 创建 bare 仓库
-git clone --bare https://gitea.example.com/repo1.git /srv/bare/repo1.git
-
-# 2. 为不同分支创建 worktree
-git --git-dir=/srv/bare/repo1.git worktree add /srv/allcode/repo1/ONLINESERVER ONLINESERVER
-git --git-dir=/srv/bare/repo1.git worktree add /srv/allcode/repo1/DEVSERVER DEVSERVER
-
-# 3. 创建软链接到实例
-ln -sfn /srv/allcode/repo1/ONLINESERVER /srv/instances/1/garrysmod/addons/repo1__ONLINESERVER
-ln -sfn /srv/allcode/repo1/ONLINESERVER /srv/instances/2/garrysmod/addons/repo1__ONLINESERVER
-ln -sfn /srv/allcode/repo1/DEVSERVER /srv/instances/4/garrysmod/addons/repo1__DEVSERVER
-```
-
-**优势**:
-- 多个实例共享同一份代码 (节省磁盘)
-- 更新代码只需一次 git pull
-- 不同分支独立目录,互不影响
-
-## 🌐 API 接口文档
-
-### 认证接口
-- `POST /api/auth/login` - 登录
-- `POST /api/auth/logout` - 登出
-- `GET /api/auth/me` - 获取当前用户信息
-
-### 用户管理 (仅超级管理员)
-- `GET /api/users` - 获取用户列表
-- `POST /api/users` - 创建用户
-- `PUT /api/users/:id` - 更新用户
-- `DELETE /api/users/:id` - 删除用户
+### 用户管理 (需要超级管理员权限)
+- GET `/api/users` - 获取所有用户
+- POST `/api/users` - 创建用户
+- PATCH `/api/users/:id` - 更新用户
+- DELETE `/api/users/:id` - 删除用户
 
 ### 实例管理
-- `GET /api/instances` - 获取实例列表
-- `POST /api/instances` - 创建实例
-- `PUT /api/instances/:id` - 更新实例
-- `DELETE /api/instances/:id` - 删除实例
-- `POST /api/instances/:id/start` - 启动实例
-- `POST /api/instances/:id/stop` - 停止实例
-- `POST /api/instances/:id/restart` - 重启实例
-- `GET /api/instances/:id/logs` - 获取实例日志
-- `GET /api/instances/:id/status` - 获取实例状态
+- GET `/api/instances` - 获取实例列表
+- GET `/api/instances/my` - 获取我的实例 (普通管理员)
+- POST `/api/instances` - 创建实例 (超级管理员)
+- PATCH `/api/instances/:id` - 更新实例 (超级管理员)
+- DELETE `/api/instances/:id` - 删除实例 (超级管理员)
+- POST `/api/instances/:id/start` - 启动实例
+- POST `/api/instances/:id/stop` - 停止实例
+- POST `/api/instances/:id/restart` - 重启实例
+- GET `/api/instances/:id/logs` - 获取日志
 
-### 仓库管理 (仅超级管理员)
-- `GET /api/repos` - 获取仓库列表
-- `POST /api/repos` - 创建仓库
-- `PUT /api/repos/:id` - 更新仓库
-- `DELETE /api/repos/:id` - 删除仓库
-- `POST /api/repos/:id/sync` - 同步仓库
-- `GET /api/repos/:id/branches` - 获取分支列表
+## 数据库表结构
 
-### 绑定管理 (仅超级管理员)
-- `GET /api/bindings` - 获取绑定列表
-- `POST /api/bindings` - 创建绑定
-- `DELETE /api/bindings/:id` - 删除绑定
-- `POST /api/bindings/:id/sync` - 同步代码
-- `POST /api/bindings/:id/refresh` - 刷新软链接
+### users (用户表)
+- id: 主键
+- username: 用户名
+- password: 密码哈希
+- role: 角色 (SUPER_ADMIN/ADMIN)
+- isActive: 是否激活
+- createdAt: 创建时间
 
-### Webhook
-- `POST /api/webhooks/gitea` - 接收 Gitea Webhook (公开接口)
+### instances (实例表)
+- id: 主键
+- name: 实例名称
+- dockerId: Docker 容器 ID
+- containerName: 容器名称
+- status: 状态 (STOPPED/RUNNING/RESTARTING/ERROR)
+- hostDirectory: 宿主机目录
+- containerDirectory: 容器目录
+- adminId: 关联的管理员 ID
+- createdAt: 创建时间
+- updatedAt: 更新时间
 
-### 审计日志 (仅超级管理员)
-- `GET /api/audits` - 获取审计日志列表
+## 许可证
 
-## 🐳 生产部署 (Linux)
-
-### 1. 环境准备
-
-```bash
-# 安装 Docker
-curl -fsSL https://get.docker.com | sh
-
-# 安装 Node.js 18
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# 创建必要目录
-sudo mkdir -p /srv/bare /srv/allcode /srv/instances
-sudo chown -R $USER:$USER /srv
-```
-
-### 2. 配置 Docker Socket 权限
-
-```bash
-sudo usermod -aG docker $USER
-# 重新登录生效
-```
-
-### 3. 部署后端
-
-```bash
-cd backend
-
-# 生产环境配置
-cp .env.example .env
-vim .env  # 修改配置
-
-# 构建
-npm install
-npm run build
-
-# 使用 PM2 运行
-npm install -g pm2
-pm2 start dist/main.js --name gmod-api
-pm2 save
-pm2 startup
-```
-
-### 4. 部署前端
-
-```bash
-cd frontend
-
-# 构建
-npm install
-npm run build
-
-# 使用 Nginx 部署
-sudo apt-get install nginx
-sudo cp dist/* /var/www/html/
-```
-
-### 5. 配置 Nginx 反向代理
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    # 前端静态文件
-    location / {
-        root /var/www/html;
-        try_files $uri $uri/ /index.html;
-    }
-
-    # 后端 API
-    location /api {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-### 6. 配置 Gitea Webhook
-
-在 Gitea 仓库设置中添加 Webhook:
-- URL: `http://your-domain.com/api/webhooks/gitea`
-- Content type: `application/json`
-- Secret: 从管理后台获取
-- Events: 选择 `Push` 和 `Pull Request`
-
-## 🔐 安全建议
-
-1. **修改默认密码**: 首次登录后立即修改 admin 密码
-2. **HTTPS**: 生产环境启用 HTTPS
-3. **防火墙**: 只开放必要端口 (80, 443, 27015-27050)
-4. **Docker 安全**: 使用非 root 用户运行容器
-5. **定期备份**: 备份 MySQL 数据库和 `/srv` 目录
-6. **Webhook Secret**: 使用强随机字符串
-
-## 📊 系统监控
-
-### 查看后端日志
-```bash
-pm2 logs gmod-api
-```
-
-### 查看 Docker 容器
-```bash
-docker ps
-docker logs gmod_instance_1
-```
-
-### 查看任务队列
-```bash
-# 进入 Redis CLI
-docker exec -it gmod-manager-redis redis-cli
-
-# 查看队列长度
-LLEN bull:git-sync:wait
-LLEN bull:instance-control:wait
-```
-
-## 🐛 常见问题
-
-### Q: 实例创建失败
-A: 检查 Docker socket 权限和端口是否被占用
-
-### Q: Webhook 没有触发
-A: 检查 Gitea Webhook 配置、网络连通性和 Secret 是否正确
-
-### Q: 软链接无效
-A: 确保 `/srv/allcode` 目录存在且 worktree 已创建
-
-### Q: 前端无法连接后端
-A: 检查 CORS 配置和 Nginx 反向代理设置
-
-## 📝 开发计划
-
-- [ ] 支持多台物理机分布式部署
-- [ ] 实例资源监控 (CPU/内存/网络)
-- [ ] 在线玩家统计 (Source Query)
-- [ ] 批量实例操作
-- [ ] 实例模板功能
-- [ ] 蓝绿发布支持
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request!
-
-## 📄 许可证
-
-MIT License
-
----
-
-**开发者**: Claude + User
-**技术支持**: [GitHub Issues](your-repo-url/issues)
+MIT

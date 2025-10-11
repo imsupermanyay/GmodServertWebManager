@@ -1,202 +1,218 @@
 <template>
-  <div class="users-page">
-    <div class="page-header">
-      <h2>用户管理</h2>
-      <el-button type="primary" @click="handleCreate">
-        <el-icon><Plus /></el-icon>
-        创建用户
-      </el-button>
+  <div>
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold text-gray-800">管理员管理</h1>
+      <button
+        @click="showCreateModal = true"
+        class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+      >
+        创建管理员
+      </button>
     </div>
 
-    <el-card class="table-card">
-      <el-table :data="users" v-loading="loading" style="width: 100%">
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="用户名" width="200" />
-        <el-table-column label="角色" width="150">
-          <template #default="{ row }">
-            <el-tag :type="row.role === 'SUPER_ADMIN' ? 'danger' : 'success'">
-              {{ row.role === 'SUPER_ADMIN' ? '超级管理员' : '管理员' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="创建时间" width="200">
-          <template #default="{ row }">
-            {{ formatTime(row.createdAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" width="200">
-          <template #default="{ row }">
-            {{ formatTime(row.updatedAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" fixed="right" width="200">
-          <template #default="{ row }">
-            <el-button type="primary" size="small" @click="handleEdit(row)">
-              编辑
-            </el-button>
-            <el-button type="danger" size="small" @click="handleDelete(row)">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+    <!-- 管理员列表 -->
+    <div class="bg-white rounded-lg shadow">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">账号</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">角色</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="user in users" :key="user.id">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.id }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.username }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+              <span
+                class="px-2 py-1 rounded-full text-xs"
+                :class="user.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'"
+              >
+                {{ user.role === 'SUPER_ADMIN' ? '超级管理员' : '普通管理员' }}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+              <span
+                class="px-2 py-1 rounded-full text-xs"
+                :class="user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+              >
+                {{ user.isActive ? '激活' : '禁用' }}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ new Date(user.createdAt).toLocaleString() }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+              <button
+                v-if="user.role !== 'SUPER_ADMIN'"
+                @click="editUser(user)"
+                class="text-blue-600 hover:text-blue-800 mr-3"
+              >
+                编辑
+              </button>
+              <button
+                v-if="user.role !== 'SUPER_ADMIN'"
+                @click="deleteUser(user.id)"
+                class="text-red-600 hover:text-red-800"
+              >
+                删除
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-    <!-- 创建/编辑用户对话框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="isEdit ? '编辑用户' : '创建用户'"
-      width="500px"
-    >
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" placeholder="请输入用户名" />
-        </el-form-item>
-        <el-form-item label="密码" prop="password">
-          <el-input
-            v-model="form.password"
-            type="password"
-            :placeholder="isEdit ? '留空则不修改密码' : '请输入密码'"
-            show-password
-          />
-        </el-form-item>
-        <el-form-item label="角色" prop="role">
-          <el-select v-model="form.role" placeholder="请选择角色">
-            <el-option label="超级管理员" value="SUPER_ADMIN" />
-            <el-option label="管理员" value="ADMIN" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">
-          确定
-        </el-button>
-      </template>
-    </el-dialog>
+    <!-- 创建管理员模态框 -->
+    <div v-if="showCreateModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-8 w-full max-w-md">
+        <h3 class="text-xl font-bold mb-4">创建管理员</h3>
+        <form @submit.prevent="createUser">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">账号</label>
+            <input
+              v-model="createForm.username"
+              type="text"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">密码</label>
+            <input
+              v-model="createForm.password"
+              type="password"
+              required
+              minlength="6"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div class="flex justify-end space-x-3">
+            <button
+              type="button"
+              @click="showCreateModal = false"
+              class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              创建
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 编辑管理员模态框 -->
+    <div v-if="showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-8 w-full max-w-md">
+        <h3 class="text-xl font-bold mb-4">编辑管理员</h3>
+        <form @submit.prevent="updateUser">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">账号</label>
+            <input
+              v-model="editForm.username"
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">新密码（留空则不修改）</label>
+            <input
+              v-model="editForm.password"
+              type="password"
+              minlength="6"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div class="flex justify-end space-x-3">
+            <button
+              type="button"
+              @click="showEditModal = false"
+              class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              保存
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { getAllUsers, createUser, updateUser, deleteUser, type User } from '@/api/users'
+<script setup>
+import { ref, onMounted } from 'vue'
+import { usersAPI } from '../../api'
 
-const loading = ref(false)
-const users = ref<User[]>([])
-const dialogVisible = ref(false)
-const isEdit = ref(false)
-const submitting = ref(false)
-const formRef = ref<FormInstance>()
-
-const form = reactive({
-  id: 0,
-  username: '',
-  password: '',
-  role: 'ADMIN' as 'SUPER_ADMIN' | 'ADMIN'
-})
-
-const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [
-    {
-      required: true,
-      validator: (rule: any, value: string, callback: any) => {
-        if (!isEdit.value && !value) {
-          callback(new Error('请输入密码'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
-  ],
-  role: [{ required: true, message: '请选择角色', trigger: 'change' }]
-}
-
-const formatTime = (time: string) => {
-  return new Date(time).toLocaleString('zh-CN')
-}
+const users = ref([])
+const showCreateModal = ref(false)
+const showEditModal = ref(false)
+const createForm = ref({ username: '', password: '' })
+const editForm = ref({ id: null, username: '', password: '' })
 
 const loadUsers = async () => {
-  loading.value = true
   try {
-    users.value = await getAllUsers()
+    const response = await usersAPI.getAll()
+    users.value = response.data
   } catch (error) {
-    ElMessage.error('加载用户列表失败')
-  } finally {
-    loading.value = false
+    alert('加载用户列表失败')
   }
 }
 
-const handleCreate = () => {
-  isEdit.value = false
-  form.id = 0
-  form.username = ''
-  form.password = ''
-  form.role = 'ADMIN'
-  dialogVisible.value = true
-}
-
-const handleEdit = (row: User) => {
-  isEdit.value = true
-  form.id = row.id
-  form.username = row.username
-  form.password = ''
-  form.role = row.role
-  dialogVisible.value = true
-}
-
-const handleSubmit = async () => {
-  if (!formRef.value) return
-
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return
-
-    submitting.value = true
-    try {
-      if (isEdit.value) {
-        const updateData: any = {
-          username: form.username,
-          role: form.role
-        }
-        if (form.password) {
-          updateData.password = form.password
-        }
-        await updateUser(form.id, updateData)
-        ElMessage.success('更新用户成功')
-      } else {
-        await createUser({
-          username: form.username,
-          password: form.password,
-          role: form.role
-        })
-        ElMessage.success('创建用户成功')
-      }
-      dialogVisible.value = false
-      loadUsers()
-    } catch (error) {
-      ElMessage.error(isEdit.value ? '更新用户失败' : '创建用户失败')
-    } finally {
-      submitting.value = false
-    }
-  })
-}
-
-const handleDelete = async (row: User) => {
+const createUser = async () => {
   try {
-    await ElMessageBox.confirm(`确定要删除用户 "${row.username}" 吗?`, '确认删除', {
-      type: 'warning'
-    })
+    await usersAPI.create(createForm.value)
+    showCreateModal.value = false
+    createForm.value = { username: '', password: '' }
+    await loadUsers()
+    alert('创建成功')
+  } catch (error) {
+    alert(error.response?.data?.message || '创建失败')
+  }
+}
 
-    await deleteUser(row.id)
-    ElMessage.success('删除用户成功')
-    loadUsers()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除用户失败')
+const editUser = (user) => {
+  editForm.value = { id: user.id, username: user.username, password: '' }
+  showEditModal.value = true
+}
+
+const updateUser = async () => {
+  try {
+    const data = { username: editForm.value.username }
+    if (editForm.value.password) {
+      data.password = editForm.value.password
     }
+    await usersAPI.update(editForm.value.id, data)
+    showEditModal.value = false
+    await loadUsers()
+    alert('更新成功')
+  } catch (error) {
+    alert(error.response?.data?.message || '更新失败')
+  }
+}
+
+const deleteUser = async (id) => {
+  if (!confirm('确定要删除这个管理员吗？')) return
+
+  try {
+    await usersAPI.delete(id)
+    await loadUsers()
+    alert('删除成功')
+  } catch (error) {
+    alert(error.response?.data?.message || '删除失败')
   }
 }
 
@@ -204,49 +220,3 @@ onMounted(() => {
   loadUsers()
 })
 </script>
-
-<style scoped>
-.users-page {
-  width: 100%;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.page-header h2 {
-  margin: 0;
-  font-size: 24px;
-  color: #ffffff;
-}
-
-.table-card {
-  background-color: #1f1f1f;
-  border: 1px solid #2d2d2d;
-}
-
-:deep(.el-table) {
-  background-color: #1f1f1f;
-  color: #ffffff;
-}
-
-:deep(.el-table th.el-table__cell) {
-  background-color: #2d2d2d;
-  color: #ffffff;
-}
-
-:deep(.el-table tr) {
-  background-color: #1f1f1f;
-}
-
-:deep(.el-table td.el-table__cell) {
-  border-bottom: 1px solid #2d2d2d;
-}
-
-:deep(.el-table__body tr:hover > td) {
-  background-color: #2d2d2d !important;
-}
-</style>
