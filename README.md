@@ -234,7 +234,7 @@ ln -sfn /srv/allcode/repo1/DEVSERVER /srv/instances/4/garrysmod/addons/repo1__DE
 ### 认证接口
 - `POST /api/auth/login` - 登录
 - `POST /api/auth/logout` - 登出
-- `POST /api/auth/me` - 获取当前用户信息
+- `GET /api/auth/me` - 获取当前用户信息
 
 ### 用户管理 (仅超级管理员)
 - `GET /api/users` - 获取用户列表

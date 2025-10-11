@@ -97,8 +97,9 @@ const handleLogin = async () => {
       const response = await authStore.login(form.username, form.password)
       ElMessage.success('登录成功')
 
+      console.log(response.data)
       // 根据角色跳转
-      if (response.user.role === 'SUPER_ADMIN') {
+      if (response.data.role === 'SUPER_ADMIN') {
         router.push('/admin/dashboard')
       } else {
         router.push('/user/instances')

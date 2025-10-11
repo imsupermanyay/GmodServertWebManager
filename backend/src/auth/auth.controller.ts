@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   HttpCode,
   HttpStatus,
@@ -40,7 +41,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@Session() session: any) {
-    session.destroy();
+    session.destroy?.();
     return {
       success: true,
       message: '登出成功',
@@ -50,7 +51,7 @@ export class AuthController {
   /**
    * 获取当前用户信息
    */
-  @Post('me')
+  @Get('me')
   async getCurrentUser(@Session() session: any) {
     if (!session.user) {
       return {
