@@ -13,7 +13,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  withCredentials: true  // 支持跨域携带 cookie
+  withCredentials: true,  // 支持跨域携带 cookie
+  timeout: 10000
 })
 
 // 请求拦截器
@@ -44,7 +45,22 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
-
+//打印请求debug
+api.interceptors.request.use((config) => {
+  console.log('[request]', config.method, config.url, config.data);
+  return config;
+});
+//打印回应debug
+api.interceptors.response.use(
+  (response) => {
+    console.log('[response]', response.status, response.config.url);
+    return response;
+  },
+  (error) => {
+    console.error('[response error]', error);
+    return Promise.reject(error);
+  }
+);
 // 认证相关
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials)

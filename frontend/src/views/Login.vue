@@ -62,15 +62,21 @@ const handleLogin = async () => {
   loading.value = true
   errorMessage.value = ''
 
+    console.log('走到这里0？') 
   try {
+    console.log('走到这里10？') 
     const data = await authStore.login(form.value)
 
+    console.log('走到这里1？') 
     // 根据角色跳转
     if (data.user.role === 'SUPER_ADMIN') {
+    console.log('走到这里2？')
       router.push('/admin/users')
     } else {
+    console.log('走到这里3？')
       router.push('/user/instances')
     }
+    console.log('走到这里4？')
   } catch (error) {
     errorMessage.value = error.response?.data?.message || '登录失败，请检查账号密码'
   } finally {
