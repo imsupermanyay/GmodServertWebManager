@@ -10,10 +10,7 @@ coverage/
 dist/
 build/
 
-# Environment
-.env
-.env.local
-.env.*.local
+
 
 # 注意: .env.example 和 .env.production 会被上传（作为模板）
 
