@@ -28,7 +28,7 @@
 
 ```env
 # 数据库配置
-DB_HOST=47.109.183.233          # 数据库主机地址
+DB_HOST=42.121.120.120          # 数据库主机地址
 DB_PORT=3306                    # 数据库端口
 DB_USERNAME=gmod_user           # 应用使用的数据库用户名
 DB_PASSWORD=gmod_password       # 应用使用的数据库密码
@@ -204,8 +204,8 @@ FLUSH PRIVILEGES;
 
 ```bash
 # 备份
-mysqldump -h 47.109.183.233 -u gmod_user -p gmod_manager > backup.sql
+mysqldump -h 42.121.120.120 -u gmod_user -p gmod_manager > backup.sql
 
 # 恢复
-mysql -h 47.109.183.233 -u gmod_user -p gmod_manager < backup.sql
+mysql -h 42.121.120.120 -u gmod_user -p gmod_manager < backup.sql
 ```

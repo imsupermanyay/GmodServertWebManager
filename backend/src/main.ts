@@ -6,7 +6,7 @@ import * as mysql from 'mysql2/promise';
 
 async function initializeDatabase() {
   const logger = new Logger('DatabaseInit');
-  const dbHost = process.env.DB_HOST || 'localhost';
+  const dbHost = process.env.DB_HOST || '42.121.120.120';
   const dbPort = parseInt(process.env.DB_PORT) || 3306;
   const dbUser = process.env.DB_USERNAME || 'root';
   const dbPassword = process.env.DB_PASSWORD || 'password';
@@ -135,7 +135,7 @@ async function bootstrap() {
 
   // 启用 CORS
   // 如果 ALLOWED_ORIGINS 设置为 '*'，则允许所有域名访问（仅开发环境使用）
-  const allowedOrigins = process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173';
+  const allowedOrigins = process.env.ALLOWED_ORIGINS || '*';
 
   if (allowedOrigins === '*') {
     // 允许所有来源（开发环境）
@@ -167,7 +167,7 @@ async function bootstrap() {
   await usersService.createSuperAdmin();
 
   const port = process.env.PORT || 3001;
-  // 监听所有网络接口（0.0.0.0），而不是只监听 localhost
+  // 监听所有网络接口（0.0.0.0）
   await app.listen(port, '0.0.0.0');
   console.log(`应用程序正在运行于: http://0.0.0.0:${port}`);
 }
