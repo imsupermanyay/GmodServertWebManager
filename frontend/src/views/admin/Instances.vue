@@ -153,6 +153,7 @@ const loadInstances = async () => {
   try {
     instances.value = await getAllInstances()
   } catch (error) {
+    console.log("加载实例失败",error)
     ElMessage.error('加载实例列表失败')
   } finally {
     loading.value = false

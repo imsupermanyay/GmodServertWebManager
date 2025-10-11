@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Session,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -29,9 +30,8 @@ export class AuthController {
     session.user = user;
 
     return {
-      success: true,
       message: '登录成功',
-      data: user,
+      user,
     };
   }
 
@@ -43,7 +43,6 @@ export class AuthController {
   async logout(@Session() session: any) {
     session.destroy?.();
     return {
-      success: true,
       message: '登出成功',
     };
   }
@@ -54,15 +53,11 @@ export class AuthController {
   @Get('me')
   async getCurrentUser(@Session() session: any) {
     if (!session.user) {
-      return {
-        success: false,
-        message: '未登录',
-      };
+      throw new UnauthorizedException('未登录');
     }
 
     return {
-      success: true,
-      data: session.user,
+      user: session.user,
     };
   }
 }
