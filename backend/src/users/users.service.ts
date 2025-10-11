@@ -14,7 +14,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-  ) {}
+  ) { }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     const existingUser = await this.usersRepository.findOne({
@@ -96,22 +96,36 @@ export class UsersService {
   }
 
   async createSuperAdmin(): Promise<void> {
-    const superAdmin = await this.usersRepository.findOne({
-      where: { role: UserRole.SUPER_ADMIN },
-    });
+    try {
+      this.logger.log('开始检查超级管理员账号...');
 
-    if (!superAdmin) {
-      const hashedPassword = await bcrypt.hash(
-        process.env.SUPER_ADMIN_PASSWORD || 'admin123',
-        10,
-      );
-      const admin = this.usersRepository.create({
-        username: process.env.SUPER_ADMIN_USERNAME || 'admin',
-        password: hashedPassword,
-        role: UserRole.SUPER_ADMIN,
+      const superAdmin = await this.usersRepository.findOne({
+        where: { role: UserRole.SUPER_ADMIN },
       });
-      await this.usersRepository.save(admin);
-      console.log('超级管理员账号已创建');
+
+      if (!superAdmin) {
+        const username = process.env.SUPER_ADMIN_USERNAME || 'novicepie';
+        const password = process.env.SUPER_ADMIN_PASSWORD || 'novicepie030522';
+
+        this.logger.log(`创建超级管理员账号: ${username}`);
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const admin = this.usersRepository.create({
+          username,
+          password: hashedPassword,
+          role: UserRole.SUPER_ADMIN,
+          isActive: true,
+        });
+
+        const savedAdmin = await this.usersRepository.save(admin);
+        this.logger.log(`✅ 超级管理员账号创建成功! ID: ${savedAdmin.id}, 用户名: ${savedAdmin.username}`);
+      } else {
+        this.logger.log(`✅ 超级管理员账号已存在: ${superAdmin.username} (ID: ${superAdmin.id})`);
+      }
+    } catch (error) {
+      this.logger.error(`❌ 创建超级管理员失败: ${error.message}`);
+      this.logger.error(error.stack);
+      throw error;
     }
   }
 }
