@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../entities/user.entity';
+import { UserRole } from '../common/enums/user-role.enum';
 
 @Injectable()
 export class AuthService {
@@ -59,7 +60,7 @@ export class AuthService {
         username: 'admin',
         email: 'admin@gmod.local',
         password_hash: hashedPassword,
-        role: 'SUPER_ADMIN',
+        role: UserRole.SUPER_ADMIN,
         is_active: true,
       });
       await this.userRepository.save(admin);
