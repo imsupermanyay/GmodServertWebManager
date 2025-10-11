@@ -1,5 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import * as Docker from 'dockerode';
+import Docker = require('dockerode');
 
 @Injectable()
 export class DockerService {
@@ -13,12 +13,35 @@ export class DockerService {
 
   async createContainer(name: string, options?: any): Promise<string> {
     try {
-      const container = await this.docker.createContainer({
+      // 使用 ceifa/garrysmod 官方镜像
+      const containerConfig = {
         name: `gmod_${name}`,
-        Image: 'gmod:latest', // 需要提前构建镜像
+        Image: 'ceifa/garrysmod:latest',
+        Env: [
+          'MAXPLAYERS=16',           // 最大玩家数
+          'GAMEMODE=sandbox',        // 游戏模式
+          'MAP=gm_flatgrass',        // 默认地图
+          'HOSTNAME=GMOD Server',    // 服务器名称
+          ...(options?.Env || []),
+        ],
+        ExposedPorts: {
+          '27015/udp': {},
+          '27015/tcp': {},
+        },
+        HostConfig: {
+          PortBindings: {
+            '27015/udp': [{ HostPort: '0' }], // 自动分配端口
+            '27015/tcp': [{ HostPort: '0' }],
+          },
+          RestartPolicy: {
+            Name: 'unless-stopped',
+          },
+          ...(options?.HostConfig || {}),
+        },
         ...options,
-      });
+      };
 
+      const container = await this.docker.createContainer(containerConfig);
       return container.id;
     } catch (error) {
       throw new InternalServerErrorException(`创建容器失败: ${error.message}`);
@@ -82,6 +105,55 @@ export class DockerService {
       await container.remove({ force: true });
     } catch (error) {
       throw new InternalServerErrorException(`删除容器失败: ${error.message}`);
+    }
+  }
+
+  async getContainerInfo(dockerId: string): Promise<any> {
+    try {
+      const container = this.docker.getContainer(dockerId);
+      const info = await container.inspect();
+
+      // 提取端口信息
+      const ports = info.NetworkSettings?.Ports || {};
+      const port27015udp = ports['27015/udp']?.[0]?.HostPort || null;
+      const port27015tcp = ports['27015/tcp']?.[0]?.HostPort || null;
+
+      return {
+        id: info.Id,
+        name: info.Name,
+        status: info.State.Status,
+        running: info.State.Running,
+        ports: {
+          udp: port27015udp,
+          tcp: port27015tcp,
+        },
+        created: info.Created,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(`获取容器信息失败: ${error.message}`);
+    }
+  }
+
+  async pullImage(imageName: string = 'ceifa/garrysmod:latest'): Promise<void> {
+    try {
+      return new Promise((resolve, reject) => {
+        this.docker.pull(imageName, (err, stream) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          this.docker.modem.followProgress(stream, (err, output) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
+        });
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(`拉取镜像失败: ${error.message}`);
     }
   }
 }

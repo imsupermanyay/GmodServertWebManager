@@ -65,4 +65,9 @@ export class InstancesController {
   getLogs(@Param('id') id: string, @Request() req) {
     return this.instancesService.getLogs(+id, req.user.id, req.user.role);
   }
+
+  @Get(':id/info')
+  getInfo(@Param('id') id: string, @Request() req) {
+    return this.instancesService.getInstanceInfo(+id, req.user.id, req.user.role);
+  }
 }

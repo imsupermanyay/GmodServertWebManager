@@ -25,17 +25,28 @@ export class InstancesService {
       throw new ConflictException('实例名称已存在');
     }
 
-    // 创建 Docker 容器
+    // 准备 Docker 容器配置
+    const dockerOptions: any = {
+      Env: [
+        `HOSTNAME=GMOD Server - ${createInstanceDto.name}`,
+      ],
+    };
+
+    // 如果指定了挂载目录，添加到配置中
+    if (createInstanceDto.hostDirectory && createInstanceDto.containerDirectory) {
+      dockerOptions.HostConfig = {
+        Binds: [`${createInstanceDto.hostDirectory}:${createInstanceDto.containerDirectory}`],
+      };
+    }
+
+    // 创建 Docker 容器（只创建，不启动）
     const dockerId = await this.dockerService.createContainer(
       createInstanceDto.name,
-      {
-        HostConfig: {
-          Binds: createInstanceDto.hostDirectory && createInstanceDto.containerDirectory
-            ? [`${createInstanceDto.hostDirectory}:${createInstanceDto.containerDirectory}`]
-            : [],
-        },
-      },
+      dockerOptions,
     );
+
+    // 获取容器详细信息（包括分配的端口）
+    const containerInfo = await this.dockerService.getContainerInfo(dockerId);
 
     const instance = this.instancesRepository.create({
       ...createInstanceDto,
@@ -166,5 +177,20 @@ export class InstancesService {
       where: { adminId: userId },
       relations: ['admin'],
     });
+  }
+
+  async getInstanceInfo(id: number, userId?: number, userRole?: UserRole): Promise<any> {
+    const instance = await this.findOne(id, userId, userRole);
+
+    if (!instance.dockerId) {
+      throw new ConflictException('实例没有关联的 Docker 容器');
+    }
+
+    const containerInfo = await this.dockerService.getContainerInfo(instance.dockerId);
+
+    return {
+      ...instance,
+      containerInfo,
+    };
   }
 }
