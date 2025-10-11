@@ -30,6 +30,11 @@ export class InstancesController {
     return this.instancesService.findAll(req.user.id, req.user.role);
   }
 
+  @Get('my')
+  async findMine(@Request() req): Promise<Instance[]> {
+    return this.instancesService.findMine(req.user.id);
+  }
+
   @Get(':id')
   async findOne(
     @Param('id', ParseIntPipe) id: number,

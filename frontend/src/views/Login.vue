@@ -105,6 +105,7 @@ const handleLogin = async () => {
         router.push('/user/instances')
       }
     } catch (error) {
+      console.log('ERROR:',error)
       ElMessage.error('登录失败，请检查用户名和密码')
     } finally {
       loading.value = false

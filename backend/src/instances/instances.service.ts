@@ -44,6 +44,16 @@ export class InstancesService {
   }
 
   /**
+   * 获取当前登录用户的实例列表
+   */
+  async findMine(userId: number): Promise<Instance[]> {
+    return this.instanceRepository.find({
+      where: { owner_user_id: userId },
+      relations: ['owner'],
+    });
+  }
+
+  /**
    * 获取单个实例详情
    */
   async findOne(
