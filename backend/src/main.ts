@@ -123,6 +123,9 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
+  // 设置全局路由前缀
+  app.setGlobalPrefix('api');
+
   // 启用全局验证管道
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
@@ -164,8 +167,9 @@ async function bootstrap() {
   await usersService.createSuperAdmin();
 
   const port = process.env.PORT || 3001;
-  await app.listen(port);
-  console.log(`应用程序正在运行于: :PORT:${port}`);
+  // 监听所有网络接口（0.0.0.0），而不是只监听 localhost
+  await app.listen(port, '0.0.0.0');
+  console.log(`应用程序正在运行于: http://0.0.0.0:${port}`);
 }
 
 bootstrap();
