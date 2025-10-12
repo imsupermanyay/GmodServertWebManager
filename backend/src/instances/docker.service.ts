@@ -355,4 +355,68 @@ export class DockerService {
       throw new InternalServerErrorException(`写入文件到容器失败: ${error.message}`);
     }
   }
+
+  async readFileFromContainer(dockerId: string, filePath: string): Promise<string> {
+    try {
+      const container = this.docker.getContainer(dockerId);
+
+      // 读取文件内容
+      const command = `cat '${filePath}'`;
+
+      // 创建 exec 实例
+      const exec = await container.exec({
+        Cmd: ['/bin/sh', '-c', command],
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: false,
+      });
+
+      // 执行命令
+      const stream = await exec.start({ Detach: false, Tty: false });
+
+      // 收集输出
+      return new Promise((resolve, reject) => {
+        let output = '';
+
+        stream.on('data', (chunk) => {
+          output += chunk.toString('utf8');
+        });
+
+        stream.on('end', () => {
+          // 移除 Docker stream header (前8个字节)
+          if (output.length >= 8) {
+            output = output.slice(8);
+          }
+          resolve(output);
+        });
+
+        stream.on('error', (error) => {
+          reject(error);
+        });
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(`读取容器文件失败: ${error.message}`);
+    }
+  }
+
+  async createHostDirectory(directoryPath: string): Promise<void> {
+    try {
+      const fs = require('fs').promises;
+      await fs.mkdir(directoryPath, { recursive: true });
+      console.log(`创建宿主机目录: ${directoryPath}`);
+    } catch (error) {
+      throw new InternalServerErrorException(`创建宿主机目录失败: ${error.message}`);
+    }
+  }
+
+  async removeHostDirectory(directoryPath: string): Promise<void> {
+    try {
+      const fs = require('fs').promises;
+      await fs.rm(directoryPath, { recursive: true, force: true });
+      console.log(`删除宿主机目录: ${directoryPath}`);
+    } catch (error) {
+      console.error(`删除宿主机目录失败: ${error.message}`);
+      // 不抛出错误，删除目录失败不应该阻止实例删除
+    }
+  }
 }

@@ -31,6 +31,11 @@ export class InstancesService {
       throw new ConflictException('实例名称已存在');
     }
 
+    // 如果指定了宿主机目录，先创建目录
+    if (createInstanceDto.hostDirectory) {
+      await this.dockerService.createHostDirectory(createInstanceDto.hostDirectory);
+    }
+
     // 准备 Docker 容器配置
     const dockerOptions: any = {
       Env: [
@@ -182,7 +187,13 @@ export class InstancesService {
       await this.dockerService.removeContainer(instance.dockerId);
     }
 
+    // 删除实例数据
     await this.instancesRepository.remove(instance);
+
+    // 删除宿主机目录
+    if (instance.hostDirectory) {
+      await this.dockerService.removeHostDirectory(instance.hostDirectory);
+    }
   }
 
   async start(id: number, userId?: number, userRole?: UserRole): Promise<Instance> {

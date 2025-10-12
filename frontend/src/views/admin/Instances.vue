@@ -105,6 +105,29 @@
             />
           </div>
           <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">容器目录 <span class="text-red-500">*</span></label>
+            <select
+              v-model="createForm.containerDirectory"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="/opt/steam/garrysmod/addons">/opt/steam/garrysmod/addons</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">插件目录挂载</p>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">宿主机目录 <span class="text-red-500">*</span></label>
+            <input
+              v-model="createForm.hostDirectory"
+              type="text"
+              required
+              readonly
+              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="将根据实例名称自动生成"
+            />
+            <p class="text-xs text-gray-500 mt-1">自动生成：/opt/gmodserver/{实例名称}/</p>
+          </div>
+          <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">Docker 镜像（可选）</label>
             <input
               v-model="createForm.dockerImage"
@@ -113,24 +136,6 @@
               placeholder="默认: hackebein/garrysmod"
             />
             <p class="text-xs text-gray-500 mt-1">留空则使用默认镜像 hackebein/garrysmod</p>
-          </div>
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">宿主机目录（可选）</label>
-            <input
-              v-model="createForm.hostDirectory"
-              type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="例如: /srv/gmod/server1"
-            />
-          </div>
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">容器目录（可选）</label>
-            <input
-              v-model="createForm.containerDirectory"
-              type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="例如: /app/garrysmod"
-            />
           </div>
           <div class="flex justify-end space-x-3">
             <button
@@ -161,24 +166,31 @@
             <input
               v-model="editForm.name"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              readonly
+              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <p class="text-xs text-gray-500 mt-1">实例名称不可修改</p>
           </div>
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">宿主机目录</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">容器目录 <span class="text-red-500">*</span></label>
+            <select
+              v-model="editForm.containerDirectory"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="/opt/steam/garrysmod/addons">/opt/steam/garrysmod/addons</option>
+            </select>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">宿主机目录 <span class="text-red-500">*</span></label>
             <input
               v-model="editForm.hostDirectory"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+              readonly
+              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-          </div>
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">容器目录</label>
-            <input
-              v-model="editForm.containerDirectory"
-              type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <p class="text-xs text-gray-500 mt-1">宿主机目录不可修改</p>
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">分配管理员</label>
@@ -238,7 +250,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { instancesAPI, usersAPI, cfgTemplatesAPI, startupOptionsAPI } from '../../api'
 import { useNotificationStore } from '../../stores/notifications'
 
@@ -254,7 +266,7 @@ const createForm = ref({
   name: '',
   dockerImage: '',
   hostDirectory: '',
-  containerDirectory: ''
+  containerDirectory: '/opt/steam/garrysmod/addons'
 })
 const editForm = ref({
   id: null,
@@ -264,6 +276,15 @@ const editForm = ref({
   adminId: null,
   cfgTemplateId: null,
   startupOptionId: null
+})
+
+// 监听实例名称变化，自动生成宿主机目录
+watch(() => createForm.value.name, (newName) => {
+  if (newName) {
+    createForm.value.hostDirectory = `/opt/gmodserver/${newName}/`
+  } else {
+    createForm.value.hostDirectory = ''
+  }
 })
 
 const getStatusClass = (status) => {
