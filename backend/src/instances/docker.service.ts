@@ -13,17 +13,12 @@ export class DockerService {
 
   async createContainer(name: string, options?: any): Promise<string> {
     try {
-      // 使用 ceifa/garrysmod 官方镜像
+      // 使用 hackebein/garrysmod 镜像
       const containerConfig = {
         name: `gmod_${name}`,
-        Image: 'ceifa/garrysmod:latest',
-        Env: [
-          'MAXPLAYERS=16',           // 最大玩家数
-          'GAMEMODE=sandbox',        // 游戏模式
-          'MAP=gm_flatgrass',        // 默认地图
-          'HOSTNAME=GMOD Server',    // 服务器名称
-          ...(options?.Env || []),
-        ],
+        Image: 'hackebein/garrysmod:latest',
+        Tty: true,
+        OpenStdin: true,
         ExposedPorts: {
           '27015/udp': {},
           '27015/tcp': {},
@@ -134,7 +129,7 @@ export class DockerService {
     }
   }
 
-  async pullImage(imageName: string = 'ceifa/garrysmod:latest'): Promise<void> {
+  async pullImage(imageName: string = 'hackebein/garrysmod:latest'): Promise<void> {
     try {
       return new Promise((resolve, reject) => {
         this.docker.pull(imageName, (err, stream) => {
