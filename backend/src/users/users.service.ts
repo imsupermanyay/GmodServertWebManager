@@ -99,28 +99,72 @@ export class UsersService {
     try {
       this.logger.log('开始检查超级管理员账号...');
 
-      const superAdmin = await this.usersRepository.findOne({
+      // 先查询是否已存在超级管理员
+      const existingSuperAdmin = await this.usersRepository.findOne({
         where: { role: UserRole.SUPER_ADMIN },
       });
 
-      if (!superAdmin) {
-        const username = process.env.SUPER_ADMIN_USERNAME || 'novicepie';
-        const password = process.env.SUPER_ADMIN_PASSWORD || 'novicepie030522';
+      if (existingSuperAdmin) {
+        this.logger.log(`✅ 超级管理员账号已存在: ${existingSuperAdmin.username} (ID: ${existingSuperAdmin.id})`);
+        return;
+      }
 
-        this.logger.log(`创建超级管理员账号: ${username}`);
+      // 获取配置
+      const username = process.env.SUPER_ADMIN_USERNAME || 'admin';
+      const password = process.env.SUPER_ADMIN_PASSWORD || 'admin123';
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const admin = this.usersRepository.create({
-          username,
-          password: hashedPassword,
-          role: UserRole.SUPER_ADMIN,
-          isActive: true,
-        });
+      this.logger.log(`准备创建超级管理员账号: ${username}`);
+      this.logger.log(`密码长度: ${password.length}`);
 
-        const savedAdmin = await this.usersRepository.save(admin);
-        this.logger.log(`✅ 超级管理员账号创建成功! ID: ${savedAdmin.id}, 用户名: ${savedAdmin.username}`);
+      // 检查用户名是否已被占用
+      const existingUser = await this.usersRepository.findOne({
+        where: { username },
+      });
+
+      if (existingUser) {
+        this.logger.warn(`用户名 ${username} 已存在，更新为超级管理员`);
+        existingUser.role = UserRole.SUPER_ADMIN;
+        existingUser.password = await bcrypt.hash(password, 10);
+        existingUser.isActive = true;
+        await this.usersRepository.save(existingUser);
+        this.logger.log(`✅ 已将用户 ${username} 更新为超级管理员`);
+        return;
+      }
+
+      // 生成密码哈希
+      const hashedPassword = await bcrypt.hash(password, 10);
+      this.logger.log(`密码哈希生成成功，长度: ${hashedPassword.length}`);
+
+      // 创建新的超级管理员
+      const admin = this.usersRepository.create({
+        username: username,
+        password: hashedPassword,
+        role: UserRole.SUPER_ADMIN,
+        isActive: true,
+      });
+
+      this.logger.log(`准备保存超级管理员到数据库...`);
+      this.logger.log(`用户对象: username=${admin.username}, role=${admin.role}, isActive=${admin.isActive}, password length=${admin.password?.length || 0}`);
+
+      const savedAdmin = await this.usersRepository.save(admin);
+
+      this.logger.log(`✅ 超级管理员账号创建成功!`);
+      this.logger.log(`   ID: ${savedAdmin.id}`);
+      this.logger.log(`   用户名: ${savedAdmin.username}`);
+      this.logger.log(`   角色: ${savedAdmin.role}`);
+      this.logger.log(`   状态: ${savedAdmin.isActive ? '激活' : '未激活'}`);
+
+      // 验证创建结果
+      const verifyAdmin = await this.usersRepository.findOne({
+        where: { id: savedAdmin.id },
+      });
+
+      if (verifyAdmin && verifyAdmin.username && verifyAdmin.password) {
+        this.logger.log(`✅ 验证成功：超级管理员数据完整`);
       } else {
-        this.logger.log(`✅ 超级管理员账号已存在: ${superAdmin.username} (ID: ${superAdmin.id})`);
+        this.logger.error(`❌ 验证失败：超级管理员数据不完整`);
+        this.logger.error(`   username: ${verifyAdmin?.username || 'NULL'}`);
+        this.logger.error(`   password: ${verifyAdmin?.password ? '已设置' : 'NULL'}`);
       }
     } catch (error) {
       this.logger.error(`❌ 创建超级管理员失败: ${error.message}`);

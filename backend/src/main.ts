@@ -163,8 +163,17 @@ async function bootstrap() {
   }
 
   // 初始化超级管理员账号
-  const usersService = app.get(UsersService);
-  await usersService.createSuperAdmin();
+  try {
+    const logger = new Logger('Bootstrap');
+    logger.log('开始初始化超级管理员账号...');
+    const usersService = app.get(UsersService);
+    await usersService.createSuperAdmin();
+    logger.log('超级管理员账号初始化完成');
+  } catch (error) {
+    const logger = new Logger('Bootstrap');
+    logger.error('初始化超级管理员失败:', error);
+    // 继续启动，但记录错误
+  }
 
   const port = process.env.PORT || 3001;
   // 监听所有网络接口（0.0.0.0）

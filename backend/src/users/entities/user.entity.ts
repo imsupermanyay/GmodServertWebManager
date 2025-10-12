@@ -7,20 +7,38 @@ export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true, charset: 'utf8mb4', collation: 'utf8mb4_unicode_ci' })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    unique: true,
+    charset: 'utf8mb4',
+    collation: 'utf8mb4_unicode_ci',
+    nullable: false
+  })
   username: string;
 
-  @Column({ charset: 'utf8mb4', collation: 'utf8mb4_unicode_ci' })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    charset: 'utf8mb4',
+    collation: 'utf8mb4_unicode_ci',
+    nullable: false
+  })
   password: string;
 
   @Column({
     type: 'enum',
     enum: UserRole,
     default: UserRole.ADMIN,
+    nullable: false
   })
   role: UserRole;
 
-  @Column({ default: true })
+  @Column({
+    type: 'boolean',
+    default: true,
+    nullable: false
+  })
   isActive: boolean;
 
   @OneToMany(() => Instance, instance => instance.admin)
