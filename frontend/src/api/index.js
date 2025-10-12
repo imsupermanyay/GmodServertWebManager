@@ -21,15 +21,16 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const authStore = useAuthStore()
-    const token = authStore.token
-    console.log('[auth debug] authStore.token:', token ? `存在(长度:${token.length})` : '不存在')
-    console.log('[auth debug] localStorage.token:', localStorage.getItem('token') ? '存在' : '不存在')
+    const basicAuth = authStore.getBasicAuthHeader()
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-      console.log('[auth debug] 已添加 Authorization header')
+    console.log('[auth debug] username:', authStore.username ? '存在' : '不存在')
+    console.log('[auth debug] password:', authStore.password ? '存在' : '不存在')
+
+    if (basicAuth) {
+      config.headers.Authorization = basicAuth
+      console.log('[auth debug] 已添加 Basic Auth header')
     } else {
-      console.warn('[auth debug] ⚠️ 没有 token，请求将不带认证信息')
+      console.warn('[auth debug] ⚠️ 没有凭证，请求将不带认证信息')
     }
     return config
   },

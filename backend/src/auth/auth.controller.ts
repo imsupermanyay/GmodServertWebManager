@@ -16,11 +16,17 @@ export class AuthController {
       // 验证用户
       const user = await this.authService.validateUser(body.username, body.password);
 
-      // 生成 token
-      const result = await this.authService.login(user);
-
       this.logger.log(`✅ 用户 ${body.username} 登录成功`);
-      return result;
+
+      // 只返回用户信息，不返回 token
+      return {
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          isActive: user.isActive,
+        },
+      };
     } catch (error) {
       this.logger.error(`❌ 登录失败: ${error.message}`);
       throw error;
