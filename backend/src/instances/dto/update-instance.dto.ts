@@ -16,4 +16,16 @@ export class UpdateInstanceDto {
   @IsNumber()
   @IsOptional()
   adminId?: number;
+
+  @IsNumber()
+  @IsOptional()
+  cfgTemplateId?: number;
+
+  @IsNumber()
+  @IsOptional()
+  startupOptionId?: number;
+
+  @IsString()
+  @IsOptional()
+  customCfg?: string;
 }
