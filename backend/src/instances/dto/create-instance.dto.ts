@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
 
 export class CreateInstanceDto {
   @IsString()
@@ -16,4 +16,16 @@ export class CreateInstanceDto {
   @IsString()
   @IsOptional()
   containerDirectory?: string;
+
+  @IsNumber()
+  @IsOptional()
+  cfgTemplateId?: number;
+
+  @IsNumber()
+  @IsOptional()
+  startupOptionId?: number;
+
+  @IsString()
+  @IsOptional()
+  customCfg?: string;
 }

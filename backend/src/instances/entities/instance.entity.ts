@@ -33,6 +33,15 @@ export class Instance {
   containerDirectory: string;
 
   @Column({ nullable: true })
+  cfgTemplateId: number;
+
+  @Column({ nullable: true })
+  startupOptionId: number;
+
+  @Column({ type: 'text', nullable: true })
+  customCfg: string;
+
+  @Column({ nullable: true })
   adminId: number;
 
   @ManyToOne(() => User, user => user.instances, { onDelete: 'SET NULL' })

@@ -23,6 +23,16 @@ const routes = [
         path: 'instances',
         name: 'AdminInstances',
         component: () => import('../views/admin/Instances.vue')
+      },
+      {
+        path: 'cfg-templates',
+        name: 'CfgTemplates',
+        component: () => import('../views/admin/CfgTemplates.vue')
+      },
+      {
+        path: 'startup-options',
+        name: 'StartupOptions',
+        component: () => import('../views/admin/StartupOptions.vue')
       }
     ]
   },

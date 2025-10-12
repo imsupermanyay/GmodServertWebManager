@@ -192,6 +192,30 @@
               </option>
             </select>
           </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">CFG 模板</label>
+            <select
+              v-model="editForm.cfgTemplateId"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option :value="null">不使用模板</option>
+              <option v-for="template in cfgTemplates" :key="template.id" :value="template.id">
+                {{ template.name }}
+              </option>
+            </select>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">启动项</label>
+            <select
+              v-model="editForm.startupOptionId"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option :value="null">不使用启动项</option>
+              <option v-for="option in startupOptions" :key="option.id" :value="option.id">
+                {{ option.name }}
+              </option>
+            </select>
+          </div>
           <div class="flex justify-end space-x-3">
             <button
               type="button"
@@ -215,11 +239,15 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { instancesAPI, usersAPI } from '../../api'
+import { instancesAPI, usersAPI, cfgTemplatesAPI, startupOptionsAPI } from '../../api'
 import { useNotificationStore } from '../../stores/notifications'
+
+const notifications = useNotificationStore()
 
 const instances = ref([])
 const adminUsers = ref([])
+const cfgTemplates = ref([])
+const startupOptions = ref([])
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const createForm = ref({
@@ -233,7 +261,9 @@ const editForm = ref({
   name: '',
   hostDirectory: '',
   containerDirectory: '',
-  adminId: null
+  adminId: null,
+  cfgTemplateId: null,
+  startupOptionId: null
 })
 
 const getStatusClass = (status) => {
@@ -293,6 +323,24 @@ const loadAdminUsers = async () => {
   }
 }
 
+const loadCfgTemplates = async () => {
+  try {
+    const response = await cfgTemplatesAPI.getAll()
+    cfgTemplates.value = response.data
+  } catch (error) {
+    console.error('加载CFG模板列表失败')
+  }
+}
+
+const loadStartupOptions = async () => {
+  try {
+    const response = await startupOptionsAPI.getAll()
+    startupOptions.value = response.data
+  } catch (error) {
+    console.error('加载启动项列表失败')
+  }
+}
+
 const createInstance = async () => {
   try {
     await instancesAPI.create(createForm.value)
@@ -311,7 +359,9 @@ const editInstance = (instance) => {
     name: instance.name,
     hostDirectory: instance.hostDirectory || '',
     containerDirectory: instance.containerDirectory || '',
-    adminId: instance.adminId || null
+    adminId: instance.adminId || null,
+    cfgTemplateId: instance.cfgTemplateId || null,
+    startupOptionId: instance.startupOptionId || null
   }
   showEditModal.value = true
 }
@@ -343,6 +393,7 @@ const deleteInstance = async (id) => {
 onMounted(() => {
   loadInstances()
   loadAdminUsers()
+  loadCfgTemplates()
+  loadStartupOptions()
 })
 </script>
-const notifications = useNotificationStore()

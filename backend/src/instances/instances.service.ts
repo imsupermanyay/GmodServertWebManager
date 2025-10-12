@@ -6,12 +6,18 @@ import { CreateInstanceDto } from './dto/create-instance.dto';
 import { UpdateInstanceDto } from './dto/update-instance.dto';
 import { DockerService } from './docker.service';
 import { InstanceStatus, UserRole } from '../common/enums';
+import { CfgTemplate } from '../config-templates/entities/cfg-template.entity';
+import { StartupOption } from '../config-templates/entities/startup-option.entity';
 
 @Injectable()
 export class InstancesService {
   constructor(
     @InjectRepository(Instance)
     private instancesRepository: Repository<Instance>,
+    @InjectRepository(CfgTemplate)
+    private cfgTemplatesRepository: Repository<CfgTemplate>,
+    @InjectRepository(StartupOption)
+    private startupOptionsRepository: Repository<StartupOption>,
     private dockerService: DockerService,
   ) {}
 
@@ -108,7 +114,46 @@ export class InstancesService {
     }
 
     Object.assign(instance, updateInstanceDto);
-    return this.instancesRepository.save(instance);
+    const savedInstance = await this.instancesRepository.save(instance);
+
+    // 如果设置了 CFG 模板或自定义 CFG，写入到容器
+    if (instance.dockerId && (updateInstanceDto.cfgTemplateId !== undefined || updateInstanceDto.customCfg !== undefined)) {
+      try {
+        await this.writeCfgToContainer(savedInstance);
+      } catch (error) {
+        // 写入失败不影响实例更新，只记录错误
+        console.error('写入 CFG 文件到容器失败:', error.message);
+      }
+    }
+
+    return savedInstance;
+  }
+
+  private async writeCfgToContainer(instance: Instance): Promise<void> {
+    // 生成 CFG 内容
+    let cfgContent = '';
+
+    // 如果有模板，先添加模板内容
+    if (instance.cfgTemplateId) {
+      const template = await this.cfgTemplatesRepository.findOne({
+        where: { id: instance.cfgTemplateId },
+      });
+      if (template) {
+        cfgContent += template.content + '\n\n';
+      }
+    }
+
+    // 添加自定义内容
+    if (instance.customCfg) {
+      cfgContent += '// ===== 自定义配置 =====\n';
+      cfgContent += instance.customCfg;
+    }
+
+    // 如果有内容，写入到容器
+    if (cfgContent.trim()) {
+      const cfgFilePath = '/opt/steam/gamemode/cfg/server.cfg';
+      await this.dockerService.writeFileToContainer(instance.dockerId, cfgFilePath, cfgContent);
+    }
   }
 
   async remove(id: number): Promise<void> {

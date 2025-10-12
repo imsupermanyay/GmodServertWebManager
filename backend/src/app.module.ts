@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { InstancesModule } from './instances/instances.module';
 import { HealthModule } from './health/health.module';
+import { ConfigTemplatesModule } from './config-templates/config-templates.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { HealthModule } from './health/health.module';
     AuthModule,
     UsersModule,
     InstancesModule,
+    ConfigTemplatesModule,
   ],
 })
 export class AppModule { }

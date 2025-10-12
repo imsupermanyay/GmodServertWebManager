@@ -23,14 +23,14 @@ api.interceptors.request.use(
     const authStore = useAuthStore()
     const basicAuth = authStore.getBasicAuthHeader()
 
-    console.log('[auth debug] username:', authStore.username ? '存在' : '不存在')
-    console.log('[auth debug] password:', authStore.password ? '存在' : '不存在')
+    // console.log('[auth debug] username:', authStore.username ? '存在' : '不存在')
+    // console.log('[auth debug] password:', authStore.password ? '存在' : '不存在')
 
     if (basicAuth) {
       config.headers.Authorization = basicAuth
-      console.log('[auth debug] 已添加 Basic Auth header')
+      // console.log('[auth debug] 已添加 Basic Auth header')
     } else {
-      console.warn('[auth debug] ⚠️ 没有凭证，请求将不带认证信息')
+      // console.warn('[auth debug] ⚠️ 没有凭证，请求将不带认证信息')
     }
     return config
   },
@@ -54,21 +54,21 @@ api.interceptors.response.use(
   }
 )
 //打印请求debug
-api.interceptors.request.use((config) => {
-  console.log('[request]', config.method, config.url, config.data);
-  return config;
-});
-//打印回应debug
-api.interceptors.response.use(
-  (response) => {
-    console.log('[response]', response.status, response.config.url);
-    return response;
-  },
-  (error) => {
-    console.error('[response error]', error);
-    return Promise.reject(error);
-  }
-);
+// api.interceptors.request.use((config) => {
+//   console.log('[request]', config.method, config.url, config.data);
+//   return config;
+// });
+// //打印回应debug
+// api.interceptors.response.use(
+//   (response) => {
+//     console.log('[response]', response.status, response.config.url);
+//     return response;
+//   },
+//   (error) => {
+//     console.error('[response error]', error);
+//     return Promise.reject(error);
+//   }
+// );
 // 认证相关
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials)
@@ -96,6 +96,24 @@ export const instancesAPI = {
   getLogs: (id) => api.get(`/instances/${id}/logs`),
   getInfo: (id) => api.get(`/instances/${id}/info`),
   execCommand: (id, data) => api.post(`/instances/${id}/exec`, data)
+}
+
+// CFG 模板相关
+export const cfgTemplatesAPI = {
+  getAll: () => api.get('/cfg-templates'),
+  getOne: (id) => api.get(`/cfg-templates/${id}`),
+  create: (data) => api.post('/cfg-templates', data),
+  update: (id, data) => api.patch(`/cfg-templates/${id}`, data),
+  delete: (id) => api.delete(`/cfg-templates/${id}`)
+}
+
+// 启动项相关
+export const startupOptionsAPI = {
+  getAll: () => api.get('/startup-options'),
+  getOne: (id) => api.get(`/startup-options/${id}`),
+  create: (data) => api.post('/startup-options', data),
+  update: (id, data) => api.patch(`/startup-options/${id}`, data),
+  delete: (id) => api.delete(`/startup-options/${id}`)
 }
 
 export default api

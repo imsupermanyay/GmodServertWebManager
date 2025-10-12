@@ -34,6 +34,13 @@
           手动刷新
         </button>
         <button
+          @click="openCfgEditor"
+          :disabled="!instanceData"
+          class="px-4 py-2 text-sm font-medium rounded-lg border border-purple-400/40 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 hover:border-purple-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+        >
+          编辑 CFG
+        </button>
+        <button
           @click="startInstance"
           :disabled="!instanceData || instanceData.status === 'RUNNING'"
           class="px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:border-emerald-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
@@ -207,13 +214,74 @@
         </section>
       </div>
     </div>
+
+    <!-- CFG 编辑模态框 -->
+    <div v-if="showCfgModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div class="bg-slate-900 rounded-2xl border border-white/10 w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl shadow-black/50">
+        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+          <h3 class="text-xl font-bold text-white">编辑 CFG 配置</h3>
+          <button @click="showCfgModal = false" class="text-slate-400 hover:text-white transition">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="overflow-y-auto max-h-[calc(90vh-140px)] scroll-sleek">
+          <div class="p-6 space-y-6">
+            <!-- 模板内容（只读） -->
+            <div v-if="cfgTemplateContent">
+              <label class="block text-sm font-medium text-slate-300 mb-2">
+                CFG 模板内容（只读）
+              </label>
+              <pre class="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-lg text-emerald-300 font-mono text-xs whitespace-pre-wrap">{{ cfgTemplateContent }}</pre>
+            </div>
+            <div v-else class="text-sm text-slate-400 bg-slate-800/50 border border-white/5 rounded-lg px-4 py-3">
+              未设置 CFG 模板
+            </div>
+
+            <!-- 自定义配置（可编辑） -->
+            <div>
+              <label class="block text-sm font-medium text-slate-300 mb-2">
+                自定义配置（可编辑）
+              </label>
+              <textarea
+                v-model="customCfgContent"
+                rows="12"
+                class="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-lg text-slate-200 font-mono text-xs placeholder-slate-500 focus:outline-none focus:border-blue-400/50 transition"
+                placeholder="在此添加您的自定义配置..."
+              ></textarea>
+              <p class="text-xs text-slate-400 mt-2">
+                自定义配置将追加到模板内容之后，并自动写入容器的 /opt/steam/gamemode/cfg/server.cfg 文件
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-white/10 flex justify-end space-x-3">
+          <button
+            @click="showCfgModal = false"
+            class="px-5 py-2 text-sm font-medium rounded-lg border border-slate-500/40 bg-slate-700/30 text-slate-200 hover:bg-slate-700/50 hover:border-slate-400/60 transition"
+          >
+            取消
+          </button>
+          <button
+            @click="saveCfg"
+            :disabled="isSavingCfg"
+            class="px-5 py-2 text-sm font-medium rounded-lg border border-blue-400/40 bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 hover:border-blue-300/70 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            {{ isSavingCfg ? '保存中...' : '保存' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { instancesAPI } from '../../api'
+import { instancesAPI, cfgTemplatesAPI } from '../../api'
 import { useNotificationStore } from '../../stores/notifications'
 
 const props = defineProps({
@@ -231,6 +299,10 @@ const detailLogs = ref('')
 const autoRefresh = ref(true)
 const isLoading = ref(false)
 const commandInput = ref('')
+const showCfgModal = ref(false)
+const cfgTemplateContent = ref('')
+const customCfgContent = ref('')
+const isSavingCfg = ref(false)
 
 const consoleRef = ref(null)
 let refreshTimer = null
@@ -242,6 +314,7 @@ const portMappings = computed(() => containerInfo.value?.ports || [])
 const formattedUptime = computed(() =>
   formatDuration(containerInfo.value?.uptimeSeconds || 0)
 )
+
 
 // 格式化端口显示
 const formattedPorts = computed(() => {
@@ -306,6 +379,8 @@ const loadDetail = async () => {
       instancesAPI.getLogs(props.id)
     ])
     instanceData.value = infoResponse.data
+    console.log("查看InstanceData"+instanceData.value?.containerInfo )
+    console.log(instanceData.value?.containerInfo )
     detailLogs.value = decodeUtf8(logsResponse.data)
     scrollConsoleToBottom()
   } catch (error) {
@@ -427,6 +502,54 @@ const sendCommand = async () => {
 
 const goBack = () => {
   router.push({ name: 'MyInstances' })
+}
+
+const openCfgEditor = async () => {
+  if (!instanceData.value) return
+
+  try {
+    // 加载 CFG 模板内容
+    cfgTemplateContent.value = ''
+    if (instanceData.value.cfgTemplateId) {
+      const response = await cfgTemplatesAPI.getOne(instanceData.value.cfgTemplateId)
+      cfgTemplateContent.value = response.data.content
+    }
+
+    // 加载自定义配置
+    customCfgContent.value = instanceData.value.customCfg || ''
+
+    showCfgModal.value = true
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '加载配置失败',
+      { title: '打开配置编辑器失败' }
+    )
+  }
+}
+
+const saveCfg = async () => {
+  if (!instanceData.value) return
+
+  isSavingCfg.value = true
+  try {
+    // 更新实例的自定义配置
+    await instancesAPI.update(instanceData.value.id, {
+      customCfg: customCfgContent.value
+    })
+
+    notifications.success('CFG 配置已保存并写入容器')
+    showCfgModal.value = false
+
+    // 刷新实例数据
+    await loadDetail()
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '保存失败',
+      { title: '保存 CFG 配置失败' }
+    )
+  } finally {
+    isSavingCfg.value = false
+  }
 }
 
 const getStatusText = (status) => {

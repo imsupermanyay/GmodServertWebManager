@@ -309,4 +309,50 @@ export class DockerService {
       throw new InternalServerErrorException(`执行命令失败: ${error.message}`);
     }
   }
+
+  async writeFileToContainer(dockerId: string, filePath: string, content: string): Promise<void> {
+    try {
+      const container = this.docker.getContainer(dockerId);
+
+      // 转义内容中的特殊字符
+      const escapedContent = content.replace(/'/g, "'\\''");
+
+      // 创建目录并写入文件
+      const command = `mkdir -p $(dirname '${filePath}') && echo '${escapedContent}' > '${filePath}'`;
+
+      // 创建 exec 实例
+      const exec = await container.exec({
+        Cmd: ['/bin/sh', '-c', command],
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: false,
+      });
+
+      // 执行命令
+      const stream = await exec.start({ Detach: false, Tty: false });
+
+      // 等待执行完成
+      return new Promise((resolve, reject) => {
+        let errorOutput = '';
+
+        stream.on('data', (chunk) => {
+          errorOutput += chunk.toString('utf8');
+        });
+
+        stream.on('end', () => {
+          if (errorOutput && errorOutput.toLowerCase().includes('error')) {
+            reject(new Error(`写入文件失败: ${errorOutput}`));
+          } else {
+            resolve();
+          }
+        });
+
+        stream.on('error', (error) => {
+          reject(error);
+        });
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(`写入文件到容器失败: ${error.message}`);
+    }
+  }
 }

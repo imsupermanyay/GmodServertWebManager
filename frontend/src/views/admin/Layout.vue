@@ -4,7 +4,7 @@
     <nav class="bg-white shadow-lg">
       <div class="max-w-7xl mx-auto px-4">
         <div class="flex justify-between items-center h-16">
-          <div class="flex space-x-8">
+          <div class="flex space-x-4">
             <router-link
               to="/admin/users"
               class="px-3 py-2 rounded-md text-sm font-medium"
@@ -18,6 +18,20 @@
               :class="$route.path === '/admin/instances' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-gray-200'"
             >
               游戏实例管理
+            </router-link>
+            <router-link
+              to="/admin/cfg-templates"
+              class="px-3 py-2 rounded-md text-sm font-medium"
+              :class="$route.path === '/admin/cfg-templates' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-gray-200'"
+            >
+              CFG 模板
+            </router-link>
+            <router-link
+              to="/admin/startup-options"
+              class="px-3 py-2 rounded-md text-sm font-medium"
+              :class="$route.path === '/admin/startup-options' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-gray-200'"
+            >
+              启动项
             </router-link>
           </div>
           <div class="flex items-center space-x-4">
