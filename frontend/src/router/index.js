@@ -36,6 +36,12 @@ const routes = [
         path: 'instances',
         name: 'MyInstances',
         component: () => import('../views/user/MyInstances.vue')
+      },
+      {
+        path: 'instances/:id',
+        name: 'MyInstanceDetail',
+        component: () => import('../views/user/InstanceDetail.vue'),
+        props: true
       }
     ]
   },

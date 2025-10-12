@@ -194,4 +194,19 @@ export class InstancesService {
       containerInfo,
     };
   }
+
+  async execCommand(id: number, command: string, userId?: number, userRole?: UserRole): Promise<any> {
+    const instance = await this.findOne(id, userId, userRole);
+
+    if (!instance.dockerId) {
+      throw new ConflictException('实例没有关联的 Docker 容器');
+    }
+
+    // 检查实例是否在运行
+    if (instance.status !== InstanceStatus.RUNNING) {
+      throw new ConflictException('实例未运行，无法执行命令');
+    }
+
+    return this.dockerService.execCommand(instance.dockerId, command);
+  }
 }

@@ -70,4 +70,9 @@ export class InstancesController {
   getInfo(@Param('id') id: string, @Request() req) {
     return this.instancesService.getInstanceInfo(+id, req.user.id, req.user.role);
   }
+
+  @Post(':id/exec')
+  execCommand(@Param('id') id: string, @Body() body: { command: string }, @Request() req) {
+    return this.instancesService.execCommand(+id, body.command, req.user.id, req.user.role);
+  }
 }

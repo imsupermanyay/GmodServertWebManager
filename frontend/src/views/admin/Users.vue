@@ -156,19 +156,21 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { usersAPI } from '../../api'
+import { useNotificationStore } from '../../stores/notifications'
 
 const users = ref([])
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const createForm = ref({ username: '', password: '' })
 const editForm = ref({ id: null, username: '', password: '' })
+const notifications = useNotificationStore()
 
 const loadUsers = async () => {
   try {
     const response = await usersAPI.getAll()
     users.value = response.data
   } catch (error) {
-    alert('加载用户列表失败')
+    notifications.error('加载用户列表失败', { title: '请求失败' })
   }
 }
 
@@ -178,9 +180,9 @@ const createUser = async () => {
     showCreateModal.value = false
     createForm.value = { username: '', password: '' }
     await loadUsers()
-    alert('创建成功')
+    notifications.success('管理员创建成功')
   } catch (error) {
-    alert(error.response?.data?.message || '创建失败')
+    notifications.error(error.response?.data?.message || '创建失败', { title: '创建管理员失败' })
   }
 }
 
@@ -198,9 +200,9 @@ const updateUser = async () => {
     await usersAPI.update(editForm.value.id, data)
     showEditModal.value = false
     await loadUsers()
-    alert('更新成功')
+    notifications.success('管理员信息已更新')
   } catch (error) {
-    alert(error.response?.data?.message || '更新失败')
+    notifications.error(error.response?.data?.message || '更新失败', { title: '更新管理员失败' })
   }
 }
 
@@ -210,9 +212,9 @@ const deleteUser = async (id) => {
   try {
     await usersAPI.delete(id)
     await loadUsers()
-    alert('删除成功')
+    notifications.success('管理员已删除')
   } catch (error) {
-    alert(error.response?.data?.message || '删除失败')
+    notifications.error(error.response?.data?.message || '删除失败', { title: '删除管理员失败' })
   }
 }
 

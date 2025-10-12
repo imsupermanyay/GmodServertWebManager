@@ -15,34 +15,73 @@
       <div
         v-for="instance in instances"
         :key="instance.id"
-        class="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition"
+        class="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-lg hover:border-blue-200 transition p-6 flex flex-col h-full"
       >
-        <div class="flex justify-between items-start mb-4">
-          <h3 class="text-lg font-bold text-gray-800">{{ instance.name }}</h3>
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span
+                class="h-2.5 w-2.5 rounded-full"
+                :class="getStatusIndicatorClass(instance.status)"
+              ></span>
+              <h3 class="text-lg font-semibold text-gray-900">{{ instance.name }}</h3>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+              创建于 {{ formatDateTime(instance.createdAt) }}
+            </p>
+          </div>
           <span
-            class="px-2 py-1 rounded-full text-xs"
+            class="px-2 py-1 rounded-full text-xs font-semibold"
             :class="getStatusClass(instance.status)"
           >
             {{ getStatusText(instance.status) }}
           </span>
         </div>
 
-        <div class="space-y-2 text-sm text-gray-600 mb-4">
-          <p><span class="font-medium">Docker ID:</span> {{ instance.dockerId || '未设置' }}</p>
-          <p><span class="font-medium">容器名:</span> {{ instance.containerName || '未设置' }}</p>
-          <p><span class="font-medium">管理员:</span> {{ instance.admin?.username || '未分配' }}</p>
+        <div class="mt-5 space-y-4 text-sm text-gray-700">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-gray-400 mb-1">Docker ID</p>
+            <div
+              class="text-xs font-mono bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg break-all"
+              :title="instance.dockerId || '未设置'"
+            >
+              {{ instance.dockerId || '未设置' }}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div class="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+              <p class="text-gray-500 uppercase tracking-wide text-[11px]">容器名</p>
+              <p class="text-gray-900 font-medium truncate" :title="instance.containerName || '未设置'">
+                {{ instance.containerName || '未设置' }}
+              </p>
+            </div>
+            <div class="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+              <p class="text-gray-500 uppercase tracking-wide text-[11px]">管理员</p>
+              <p class="text-gray-900 font-medium">
+                {{ instance.admin?.username || '未分配' }}
+              </p>
+            </div>
+          </div>
+
+          <div v-if="instance.dockerImage" class="text-xs">
+            <p class="text-gray-500 uppercase tracking-wide text-[11px] mb-1">镜像</p>
+            <p class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono break-all">
+              {{ instance.dockerImage }}
+            </p>
+          </div>
         </div>
 
-        <div class="flex space-x-2">
+        <div class="mt-6 grid grid-cols-2 gap-3">
           <button
             @click="editInstance(instance)"
-            class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+            class="px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition"
           >
             编辑
           </button>
           <button
             @click="deleteInstance(instance.id)"
-            class="flex-1 px-3 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+            class="px-3 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition"
           >
             删除
           </button>
@@ -177,6 +216,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { instancesAPI, usersAPI } from '../../api'
+import { useNotificationStore } from '../../stores/notifications'
 
 const instances = ref([])
 const adminUsers = ref([])
@@ -206,6 +246,16 @@ const getStatusClass = (status) => {
   return classes[status] || 'bg-gray-100 text-gray-800'
 }
 
+const getStatusIndicatorClass = (status) => {
+  const classes = {
+    RUNNING: 'bg-green-500',
+    STOPPED: 'bg-gray-400',
+    RESTARTING: 'bg-yellow-500 animate-pulse',
+    ERROR: 'bg-red-500'
+  }
+  return classes[status] || 'bg-gray-400'
+}
+
 const getStatusText = (status) => {
   const texts = {
     RUNNING: '运行中',
@@ -216,12 +266,21 @@ const getStatusText = (status) => {
   return texts[status] || status
 }
 
+const formatDateTime = (value) => {
+  if (!value) return '未知'
+  try {
+    return new Date(value).toLocaleString()
+  } catch (err) {
+    return value
+  }
+}
+
 const loadInstances = async () => {
   try {
     const response = await instancesAPI.getAll()
     instances.value = response.data
   } catch (error) {
-    alert('加载实例列表失败')
+    notifications.error('加载实例列表失败', { title: '请求失败' })
   }
 }
 
@@ -240,9 +299,9 @@ const createInstance = async () => {
     showCreateModal.value = false
     createForm.value = { name: '', dockerImage: '', hostDirectory: '', containerDirectory: '' }
     await loadInstances()
-    alert('创建成功')
+    notifications.success('实例创建成功')
   } catch (error) {
-    alert(error.response?.data?.message || '创建失败')
+    notifications.error(error.response?.data?.message || '创建失败', { title: '创建实例失败' })
   }
 }
 
@@ -263,9 +322,9 @@ const updateInstance = async () => {
     await instancesAPI.update(id, data)
     showEditModal.value = false
     await loadInstances()
-    alert('更新成功')
+    notifications.success('实例更新成功')
   } catch (error) {
-    alert(error.response?.data?.message || '更新失败')
+    notifications.error(error.response?.data?.message || '更新失败', { title: '更新实例失败' })
   }
 }
 
@@ -275,9 +334,9 @@ const deleteInstance = async (id) => {
   try {
     await instancesAPI.delete(id)
     await loadInstances()
-    alert('删除成功')
+    notifications.success('实例删除成功')
   } catch (error) {
-    alert(error.response?.data?.message || '删除失败')
+    notifications.error(error.response?.data?.message || '删除失败', { title: '删除实例失败' })
   }
 }
 
@@ -286,3 +345,4 @@ onMounted(() => {
   loadAdminUsers()
 })
 </script>
+const notifications = useNotificationStore()
