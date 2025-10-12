@@ -19,7 +19,7 @@ export class InstancesService {
     @InjectRepository(StartupOption)
     private startupOptionsRepository: Repository<StartupOption>,
     private dockerService: DockerService,
-  ) {}
+  ) { }
 
   async create(createInstanceDto: CreateInstanceDto): Promise<Instance> {
     // 检查实例名称是否重复
@@ -151,7 +151,7 @@ export class InstancesService {
 
     // 如果有内容，写入到容器
     if (cfgContent.trim()) {
-      const cfgFilePath = '/opt/steam/gamemode/cfg/server.cfg';
+      const cfgFilePath = '/opt/steam/garrysmod/cfg/server.cfg';
       await this.dockerService.writeFileToContainer(instance.dockerId, cfgFilePath, cfgContent);
     }
   }

@@ -41,6 +41,13 @@
           编辑 CFG
         </button>
         <button
+          @click="openStartupViewer"
+          :disabled="!instanceData"
+          class="px-4 py-2 text-sm font-medium rounded-lg border border-indigo-400/40 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/20 hover:border-indigo-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+        >
+          查看启动项
+        </button>
+        <button
           @click="startInstance"
           :disabled="!instanceData || instanceData.status === 'RUNNING'"
           class="px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:border-emerald-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
@@ -275,13 +282,55 @@
         </div>
       </div>
     </div>
+
+    <!-- 启动项查看模态框 -->
+    <div v-if="showStartupModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div class="bg-slate-900 rounded-2xl border border-white/10 w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl shadow-black/50">
+        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+          <h3 class="text-xl font-bold text-white">查看启动项</h3>
+          <button @click="showStartupModal = false" class="text-slate-400 hover:text-white transition">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="overflow-y-auto max-h-[calc(90vh-120px)] scroll-sleek p-6">
+          <div v-if="startupOptionContent">
+            <label class="block text-sm font-medium text-slate-300 mb-3">
+              启动项内容
+            </label>
+            <pre class="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-lg text-emerald-300 font-mono text-xs whitespace-pre-wrap">{{ startupOptionContent }}</pre>
+            <p class="text-xs text-slate-400 mt-3">
+              此启动项将在容器启动时自动应用
+            </p>
+          </div>
+          <div v-else class="text-center py-12">
+            <svg class="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p class="text-slate-400 text-sm">未设置启动项</p>
+            <p class="text-slate-500 text-xs mt-2">请联系超级管理员为此实例配置启动项</p>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-white/10 flex justify-end">
+          <button
+            @click="showStartupModal = false"
+            class="px-5 py-2 text-sm font-medium rounded-lg border border-slate-500/40 bg-slate-700/30 text-slate-200 hover:bg-slate-700/50 hover:border-slate-400/60 transition"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { instancesAPI, cfgTemplatesAPI } from '../../api'
+import { instancesAPI, cfgTemplatesAPI, startupOptionsAPI } from '../../api'
 import { useNotificationStore } from '../../stores/notifications'
 
 const props = defineProps({
@@ -303,6 +352,8 @@ const showCfgModal = ref(false)
 const cfgTemplateContent = ref('')
 const customCfgContent = ref('')
 const isSavingCfg = ref(false)
+const showStartupModal = ref(false)
+const startupOptionContent = ref('')
 
 const consoleRef = ref(null)
 let refreshTimer = null
@@ -549,6 +600,26 @@ const saveCfg = async () => {
     )
   } finally {
     isSavingCfg.value = false
+  }
+}
+
+const openStartupViewer = async () => {
+  if (!instanceData.value) return
+
+  try {
+    // 加载启动项内容
+    startupOptionContent.value = ''
+    if (instanceData.value.startupOptionId) {
+      const response = await startupOptionsAPI.getOne(instanceData.value.startupOptionId)
+      startupOptionContent.value = response.data.content
+    }
+
+    showStartupModal.value = true
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '加载启动项失败',
+      { title: '打开启动项查看器失败' }
+    )
   }
 }
 
