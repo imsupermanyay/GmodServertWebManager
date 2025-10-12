@@ -165,7 +165,6 @@ export class InstancesService {
 
     // 添加自定义内容
     if (instance.customCfg) {
-      cfgContent += '// ===== 自定义配置 =====\n';
       cfgContent += instance.customCfg;
     }
 
