@@ -94,23 +94,43 @@ export class InstancesService {
     return instance;
   }
 
-  async update(id: number, updateInstanceDto: UpdateInstanceDto): Promise<Instance> {
-    const instance = await this.findOne(id);
+  async update(id: number, updateInstanceDto: UpdateInstanceDto, userId?: number, userRole?: UserRole): Promise<Instance> {
+    const instance = await this.findOne(id, userId, userRole);
 
-    if (updateInstanceDto.name && updateInstanceDto.name !== instance.name) {
-      const existingInstance = await this.instancesRepository.findOne({
-        where: { name: updateInstanceDto.name },
-      });
-      if (existingInstance) {
-        throw new ConflictException('实例名称已存在');
+    // 权限检查
+    if (userRole === UserRole.ADMIN) {
+      // 普通管理员只能修改自己实例的 customCfg
+      if (instance.adminId !== userId) {
+        throw new ForbiddenException('无权修改此实例');
+      }
+
+      // 只允许修改 customCfg 字段
+      const allowedFields = ['customCfg'];
+      const requestedFields = Object.keys(updateInstanceDto);
+      const unauthorizedFields = requestedFields.filter(field => !allowedFields.includes(field));
+
+      if (unauthorizedFields.length > 0) {
+        throw new ForbiddenException(`普通管理员只能修改 customCfg 字段，不能修改: ${unauthorizedFields.join(', ')}`);
       }
     }
 
-    // 如果修改了挂载卷，需要重新创建容器
-    if (updateInstanceDto.hostDirectory || updateInstanceDto.containerDirectory) {
-      // 这里简化处理，实际应该先停止并删除旧容器
-      instance.hostDirectory = updateInstanceDto.hostDirectory || instance.hostDirectory;
-      instance.containerDirectory = updateInstanceDto.containerDirectory || instance.containerDirectory;
+    // 超级管理员的权限检查
+    if (userRole === UserRole.SUPER_ADMIN) {
+      if (updateInstanceDto.name && updateInstanceDto.name !== instance.name) {
+        const existingInstance = await this.instancesRepository.findOne({
+          where: { name: updateInstanceDto.name },
+        });
+        if (existingInstance) {
+          throw new ConflictException('实例名称已存在');
+        }
+      }
+
+      // 如果修改了挂载卷，需要重新创建容器
+      if (updateInstanceDto.hostDirectory || updateInstanceDto.containerDirectory) {
+        // 这里简化处理，实际应该先停止并删除旧容器
+        instance.hostDirectory = updateInstanceDto.hostDirectory || instance.hostDirectory;
+        instance.containerDirectory = updateInstanceDto.containerDirectory || instance.containerDirectory;
+      }
     }
 
     Object.assign(instance, updateInstanceDto);

@@ -35,9 +35,8 @@ export class InstancesController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.SUPER_ADMIN)
-  update(@Param('id') id: string, @Body() updateInstanceDto: UpdateInstanceDto) {
-    return this.instancesService.update(+id, updateInstanceDto);
+  update(@Param('id') id: string, @Body() updateInstanceDto: UpdateInstanceDto, @Request() req) {
+    return this.instancesService.update(+id, updateInstanceDto, req.user.id, req.user.role);
   }
 
   @Delete(':id')
