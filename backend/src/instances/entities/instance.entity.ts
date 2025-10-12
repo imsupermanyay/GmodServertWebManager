@@ -16,6 +16,9 @@ export class Instance {
   @Column({ nullable: true })
   containerName: string;
 
+  @Column({ nullable: true, default: 'hackebein/garrysmod' })
+  dockerImage: string;
+
   @Column({
     type: 'enum',
     enum: InstanceStatus,

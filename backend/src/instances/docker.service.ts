@@ -11,12 +11,14 @@ export class DockerService {
     });
   }
 
-  async createContainer(name: string, options?: any): Promise<string> {
+  async createContainer(name: string, imageName?: string, options?: any): Promise<string> {
     try {
-      // 使用 hackebein/garrysmod 镜像
+      // 使用传入的镜像名，默认为 hackebein/garrysmod
+      const image = imageName || 'hackebein/garrysmod';
+
       const containerConfig = {
         name: `gmod_${name}`,
-        Image: 'hackebein/garrysmod:latest',
+        Image: image,
         Tty: true,
         OpenStdin: true,
         ExposedPorts: {

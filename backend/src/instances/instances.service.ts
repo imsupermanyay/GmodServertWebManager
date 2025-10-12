@@ -42,6 +42,7 @@ export class InstancesService {
     // 创建 Docker 容器（只创建，不启动）
     const dockerId = await this.dockerService.createContainer(
       createInstanceDto.name,
+      createInstanceDto.dockerImage, // 传递镜像名
       dockerOptions,
     );
 

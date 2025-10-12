@@ -66,6 +66,16 @@
             />
           </div>
           <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Docker 镜像（可选）</label>
+            <input
+              v-model="createForm.dockerImage"
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="默认: hackebein/garrysmod"
+            />
+            <p class="text-xs text-gray-500 mt-1">留空则使用默认镜像 hackebein/garrysmod</p>
+          </div>
+          <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">宿主机目录（可选）</label>
             <input
               v-model="createForm.hostDirectory"
@@ -174,6 +184,7 @@ const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const createForm = ref({
   name: '',
+  dockerImage: '',
   hostDirectory: '',
   containerDirectory: ''
 })
@@ -227,7 +238,7 @@ const createInstance = async () => {
   try {
     await instancesAPI.create(createForm.value)
     showCreateModal.value = false
-    createForm.value = { name: '', hostDirectory: '', containerDirectory: '' }
+    createForm.value = { name: '', dockerImage: '', hostDirectory: '', containerDirectory: '' }
     await loadInstances()
     alert('创建成功')
   } catch (error) {

@@ -7,6 +7,10 @@ export class CreateInstanceDto {
 
   @IsString()
   @IsOptional()
+  dockerImage?: string;
+
+  @IsString()
+  @IsOptional()
   hostDirectory?: string;
 
   @IsString()
