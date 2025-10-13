@@ -50,9 +50,9 @@ export class InstancesService {
     // 这个命令会在容器启动时执行，用于初始化环境
     const defaultDockerCmd = `
       bash -lc '
-        mkdir -p /srv/4020;
-        ./steamcmd.sh +login anonymous +force_install_dir /srv/4020 +app_update 4020 validate +quit;
-        echo "GMOD 4020 下载完成，文件在 /srv/4020";
+        mkdir -p /opt/steam;
+        ./steamcmd.sh +login anonymous +force_install_dir /opt/steam +app_update 4020 validate +quit;
+        echo "GMOD 4020 下载完成，文件在 /opt/steam";
         tail -f /dev/null
       '
     `.trim();
