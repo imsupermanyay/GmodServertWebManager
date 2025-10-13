@@ -2,13 +2,13 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@n
 import { StartupOptionsService } from './startup-options.service';
 import { CreateStartupOptionDto } from './dto/create-startup-option.dto';
 import { UpdateStartupOptionDto } from './dto/update-startup-option.dto';
-import { BasicAuthGuard } from '../auth/guards/basic-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../common/enums';
 
 @Controller('startup-options')
-@UseGuards(BasicAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class StartupOptionsController {
   constructor(private readonly startupOptionsService: StartupOptionsService) {}
 

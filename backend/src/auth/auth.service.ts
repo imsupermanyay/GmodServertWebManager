@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
 
@@ -8,6 +9,7 @@ export class AuthService {
 
   constructor(
     private usersService: UsersService,
+    private jwtService: JwtService,
   ) {}
 
   async validateUser(username: string, password: string): Promise<any> {
@@ -43,6 +45,24 @@ export class AuthService {
       this.logger.error(`验证过程出错: ${error.message}`);
       throw error;
     }
+  }
+
+  async login(user: any) {
+    const payload = {
+      username: user.username,
+      sub: user.id,
+      role: user.role
+    };
+
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        isActive: user.isActive,
+      },
+    };
   }
 
 }

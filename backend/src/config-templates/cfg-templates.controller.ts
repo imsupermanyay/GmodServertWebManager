@@ -2,13 +2,13 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@n
 import { CfgTemplatesService } from './cfg-templates.service';
 import { CreateCfgTemplateDto } from './dto/create-cfg-template.dto';
 import { UpdateCfgTemplateDto } from './dto/update-cfg-template.dto';
-import { BasicAuthGuard } from '../auth/guards/basic-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../common/enums';
 
 @Controller('cfg-templates')
-@UseGuards(BasicAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class CfgTemplatesController {
   constructor(private readonly cfgTemplatesService: CfgTemplatesService) {}
 

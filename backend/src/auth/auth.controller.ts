@@ -16,17 +16,12 @@ export class AuthController {
       // 验证用户
       const user = await this.authService.validateUser(body.username, body.password);
 
-      this.logger.log(`✅ 用户 ${body.username} 登录成功`);
+      // 生成 JWT token
+      const result = await this.authService.login(user);
 
-      // 只返回用户信息，不返回 token
-      return {
-        user: {
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          isActive: user.isActive,
-        },
-      };
+      this.logger.log(`✅ 用户 ${body.username} 登录成功，已颁发 JWT token`);
+
+      return result;
     } catch (error) {
       this.logger.error(`❌ 登录失败: ${error.message}`);
       throw error;

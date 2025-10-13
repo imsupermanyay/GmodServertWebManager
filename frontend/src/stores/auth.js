@@ -4,12 +4,11 @@ import { authAPI } from '../api'
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: JSON.parse(localStorage.getItem('user') || 'null'),
-    username: localStorage.getItem('username') || null,
-    password: localStorage.getItem('password') || null
+    token: localStorage.getItem('token') || null
   }),
 
   getters: {
-    isAuthenticated: (state) => !!state.username && !!state.password,
+    isAuthenticated: (state) => !!state.token,
     isSuperAdmin: (state) => state.user?.role === 'SUPER_ADMIN',
     isAdmin: (state) => state.user?.role === 'ADMIN'
   },
@@ -19,15 +18,13 @@ export const useAuthStore = defineStore('auth', {
       try {
         console.log('发送登录请求')
         const response = await authAPI.login(credentials)
-        console.log('登录成功，保存凭证')
+        console.log('登录成功，保存 JWT token')
 
-        // 保存用户名、密码和用户信息
-        this.username = credentials.username
-        this.password = credentials.password
+        // 保存 JWT token 和用户信息
+        this.token = response.data.access_token
         this.user = response.data.user
 
-        localStorage.setItem('username', credentials.username)
-        localStorage.setItem('password', credentials.password)
+        localStorage.setItem('token', response.data.access_token)
         localStorage.setItem('user', JSON.stringify(response.data.user))
 
         return response.data
@@ -39,10 +36,8 @@ export const useAuthStore = defineStore('auth', {
 
     logout() {
       this.user = null
-      this.username = null
-      this.password = null
-      localStorage.removeItem('username')
-      localStorage.removeItem('password')
+      this.token = null
+      localStorage.removeItem('token')
       localStorage.removeItem('user')
     },
 
@@ -50,13 +45,9 @@ export const useAuthStore = defineStore('auth', {
       this.user = user
     },
 
-    // 获取 Basic Auth 凭证
-    getBasicAuthHeader() {
-      if (this.username && this.password) {
-        const credentials = btoa(`${this.username}:${this.password}`)
-        return `Basic ${credentials}`
-      }
-      return null
+    // 获取 JWT Bearer Token
+    getAuthToken() {
+      return this.token
     }
   }
 })

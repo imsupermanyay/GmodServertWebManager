@@ -21,16 +21,10 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const authStore = useAuthStore()
-    const basicAuth = authStore.getBasicAuthHeader()
+    const token = authStore.getAuthToken()
 
-    // console.log('[auth debug] username:', authStore.username ? '存在' : '不存在')
-    // console.log('[auth debug] password:', authStore.password ? '存在' : '不存在')
-
-    if (basicAuth) {
-      config.headers.Authorization = basicAuth
-      // console.log('[auth debug] 已添加 Basic Auth header')
-    } else {
-      // console.warn('[auth debug] ⚠️ 没有凭证，请求将不带认证信息')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
     }
     return config
   },

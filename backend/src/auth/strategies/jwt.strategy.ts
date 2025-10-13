@@ -1,27 +1,40 @@
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, Logger } from '@nestjs/common';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ConfigService } from '@nestjs/config';
+import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  private readonly logger = new Logger(JwtStrategy.name);
-
-  constructor() {
-    const secret = process.env.JWT_SECRET || 'your-secret-key';
+  constructor(
+    private configService: ConfigService,
+    private usersService: UsersService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: secret,
+      secretOrKey: configService.get<string>('JWT_SECRET'),
     });
-    this.logger.log(`JwtStrategy 初始化，使用 secret: ${secret.substring(0, 10)}...`);
   }
 
   async validate(payload: any) {
-    this.logger.log(`验证 JWT payload: sub=${payload.sub}, username=${payload.username}, role=${payload.role}`);
+    // payload 包含 JWT 中的数据：{ sub: userId, username, role }
+    const user = await this.usersService.findOne(payload.sub);
+
+    if (!user) {
+      throw new UnauthorizedException('用户不存在');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('账号已被禁用');
+    }
+
+    // 返回的数据会被附加到 request.user
     return {
-      id: payload.sub,
-      username: payload.username,
-      role: payload.role
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      isActive: user.isActive,
     };
   }
 }

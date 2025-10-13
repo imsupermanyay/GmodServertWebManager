@@ -2,13 +2,13 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request }
 import { InstancesService } from './instances.service';
 import { CreateInstanceDto } from './dto/create-instance.dto';
 import { UpdateInstanceDto } from './dto/update-instance.dto';
-import { BasicAuthGuard } from '../auth/guards/basic-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../common/enums';
 
 @Controller('instances')
-@UseGuards(BasicAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class InstancesController {
   constructor(private readonly instancesService: InstancesService) {}
 
