@@ -133,9 +133,9 @@
               v-model="createForm.dockerImage"
               type="text"
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="默认: steamcmd/steamcmd"
+              placeholder="默认: lacledeslan/steamcmd"
             />
-            <p class="text-xs text-gray-500 mt-1">留空则使用默认镜像 steamcmd/steamcmd</p>
+            <p class="text-xs text-gray-500 mt-1">留空则使用默认镜像 lacledeslan/steamcmd</p>
           </div>
           <div class="flex justify-end space-x-3">
             <button

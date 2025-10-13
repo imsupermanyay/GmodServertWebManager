@@ -13,8 +13,8 @@ export class DockerService {
 
   async createContainer(name: string, imageName?: string, options?: any): Promise<string> {
     try {
-      // 使用传入的镜像名，默认为 steamcmd/steamcmd
-      const image = imageName || 'steamcmd/steamcmd';
+      // 使用传入的镜像名，默认为 lacledeslan/steamcmd
+      const image = imageName || 'lacledeslan/steamcmd';
       const normalizedImage = image.includes(':') ? image : `${image}:latest`;
 
       await this.ensureImageAvailable(normalizedImage);
@@ -93,8 +93,39 @@ export class DockerService {
         stdout: true,
         stderr: true,
         tail: 100,
+        timestamps: false, // 不显示时间戳
       });
-      return logs.toString();
+
+      // Docker logs 返回的是 Buffer，包含 stream header
+      // 每个消息的格式: [8 bytes header][message content]
+      // Header 格式: [stream type, 0, 0, 0, size1, size2, size3, size4]
+      let output = '';
+      const buffer = Buffer.isBuffer(logs) ? logs : Buffer.from(logs);
+
+      let offset = 0;
+      while (offset < buffer.length) {
+        // 读取 header (8 bytes)
+        if (offset + 8 > buffer.length) break;
+
+        // 读取消息长度 (大端序)
+        const size = buffer.readUInt32BE(offset + 4);
+
+        // 跳过 header，读取实际内容
+        offset += 8;
+
+        if (offset + size > buffer.length) break;
+
+        const message = buffer.slice(offset, offset + size).toString('utf8');
+        output += message;
+
+        offset += size;
+      }
+
+      // 移除 ANSI 转义序列（颜色代码等）
+      // eslint-disable-next-line no-control-regex
+      output = output.replace(/\x1b\[[0-9;]*m/g, '');
+
+      return output;
     } catch (error) {
       throw new InternalServerErrorException(`获取日志失败: ${error.message}`);
     }
@@ -243,7 +274,7 @@ export class DockerService {
     }
   }
 
-  async pullImage(imageName: string = 'steamcmd/steamcmd:latest'): Promise<void> {
+  async pullImage(imageName: string = 'lacledeslan/steamcmd:latest'): Promise<void> {
     try {
       return new Promise((resolve, reject) => {
         this.docker.pull(imageName, (err, stream) => {

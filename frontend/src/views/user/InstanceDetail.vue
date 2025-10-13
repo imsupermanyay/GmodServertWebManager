@@ -158,7 +158,7 @@
             <div class="bg-slate-900/80 border border-white/5 rounded-lg px-4 py-3">
               <p class="text-slate-500 uppercase tracking-wide text-[11px]">镜像</p>
               <p class="font-mono text-xs break-all text-slate-200 mt-1">
-                {{ instanceData.dockerImage || 'steamcmd/steamcmd:latest' }}
+                {{ instanceData.dockerImage || 'lacledeslan/steamcmd:latest' }}
               </p>
             </div>
             <div class="bg-slate-900/80 border border-white/5 rounded-lg px-4 py-3 md:col-span-2">
@@ -400,16 +400,7 @@ const getStatusBadge = (status) => {
   return statusBadgeClasses[status] || 'border-slate-500/60 bg-slate-700/40 text-slate-200'
 }
 
-const decodeUtf8 = (value) => {
-  if (!value) return ''
-  try {
-    const encoder = new TextEncoder()
-    const decoder = new TextDecoder('utf-8', { fatal: false })
-    return decoder.decode(encoder.encode(value))
-  } catch (error) {
-    return value
-  }
-}
+// 已不需要 decodeUtf8，后端已经处理好编码和特殊字符
 
 const scrollConsoleToBottom = () => {
   nextTick(() => {
@@ -430,9 +421,7 @@ const loadDetail = async () => {
       instancesAPI.getLogs(props.id)
     ])
     instanceData.value = infoResponse.data
-    // console.log("查看InstanceData"+instanceData.value?.containerInfo )
-    // console.log(instanceData.value?.containerInfo )
-    detailLogs.value = decodeUtf8(logsResponse.data)
+    detailLogs.value = logsResponse.data
     scrollConsoleToBottom()
   } catch (error) {
     notifications.error(
@@ -452,7 +441,7 @@ const refreshAll = () => {
 const refreshLogs = async () => {
   try {
     const response = await instancesAPI.getLogs(props.id)
-    detailLogs.value = decodeUtf8(response.data)
+    detailLogs.value = response.data
     scrollConsoleToBottom()
   } catch (error) {
     notifications.error(
