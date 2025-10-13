@@ -1,6 +1,6 @@
 # GMOD 游戏实例管理指南
 
-本系统使用 `ceifa/garrysmod` Docker 镜像来创建和管理 Garry's Mod 服务器实例。
+本系统使用 ` ` Docker 镜像来创建和管理 Garry's Mod 服务器实例。
 
 ## 功能说明
 
@@ -8,7 +8,7 @@
 
 当您创建一个新的游戏实例时，系统会：
 
-1. **创建 Docker 容器**（使用 `ceifa/garrysmod:latest` 镜像）
+1. **创建 Docker 容器**（使用 ` :latest` 镜像）
 2. **配置默认参数**：
    - 最大玩家数：16
    - 游戏模式：sandbox
@@ -40,7 +40,7 @@
 在创建第一个实例之前，建议先手动拉取 Docker 镜像：
 
 ```bash
-docker pull ceifa/garrysmod:latest
+docker pull  :latest
 ```
 
 这可能需要几分钟时间，取决于您的网络速度。
@@ -160,14 +160,14 @@ A: 可以通过以下方式：
 
 ## Docker 镜像说明
 
-本系统使用 `ceifa/garrysmod` 镜像，特点：
+本系统使用 ` ` 镜像，特点：
 
 - 基于 Linux 系统
 - 自动安装和更新 GMOD 服务器
 - 支持通过环境变量配置
 - 轻量级，占用资源少
 
-更多信息请访问：https://hub.docker.com/r/ceifa/garrysmod
+更多信息请访问：https://hub.docker.com/r/ 
 
 ## API 接口
 

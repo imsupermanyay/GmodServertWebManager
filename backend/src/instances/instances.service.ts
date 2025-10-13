@@ -36,12 +36,8 @@ export class InstancesService {
       await this.dockerService.createHostDirectory(createInstanceDto.hostDirectory);
     }
 
-    // 准备 Docker 容器配置
-    const dockerOptions: any = {
-      Env: [
-        `HOSTNAME=GMOD Server - ${createInstanceDto.name}`,
-      ],
-    };
+    // 准备 Docker 容器配置（简化版：只配置目录挂载）
+    const dockerOptions: any = {};
 
     // 如果指定了挂载目录，添加到配置中
     if (createInstanceDto.hostDirectory && createInstanceDto.containerDirectory) {

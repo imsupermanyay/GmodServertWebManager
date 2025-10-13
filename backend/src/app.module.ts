@@ -28,7 +28,7 @@ import { ConfigTemplatesModule } from './config-templates/config-templates.modul
         connectionLimit: 10,
         connectTimeout: 10000,
       },
-      logging: true, // 开启 SQL 日志
+      logging: false, // 关闭 SQL 日志，只在调试时开启
     }),
     HealthModule,
     AuthModule,

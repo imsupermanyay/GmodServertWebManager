@@ -13,12 +13,13 @@ export class DockerService {
 
   async createContainer(name: string, imageName?: string, options?: any): Promise<string> {
     try {
-      // 使用传入的镜像名，默认为 hackebein/garrysmod
-      const image = imageName || 'hackebein/garrysmod';
+      // 使用传入的镜像名，默认为 steamcmd/steamcmd
+      const image = imageName || 'steamcmd/steamcmd';
       const normalizedImage = image.includes(':') ? image : `${image}:latest`;
 
       await this.ensureImageAvailable(normalizedImage);
 
+      // 简化配置：不需要端口映射和环境变量
       const containerConfig = {
         name: `gmod_${name}`,
         Image: normalizedImage,
@@ -242,7 +243,7 @@ export class DockerService {
     }
   }
 
-  async pullImage(imageName: string = 'hackebein/garrysmod:latest'): Promise<void> {
+  async pullImage(imageName: string = 'steamcmd/steamcmd:latest'): Promise<void> {
     try {
       return new Promise((resolve, reject) => {
         this.docker.pull(imageName, (err, stream) => {

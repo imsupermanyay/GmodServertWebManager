@@ -158,7 +158,7 @@
             <div class="bg-slate-900/80 border border-white/5 rounded-lg px-4 py-3">
               <p class="text-slate-500 uppercase tracking-wide text-[11px]">镜像</p>
               <p class="font-mono text-xs break-all text-slate-200 mt-1">
-                {{ instanceData.dockerImage || 'hackebein/garrysmod:latest' }}
+                {{ instanceData.dockerImage || 'steamcmd/steamcmd:latest' }}
               </p>
             </div>
             <div class="bg-slate-900/80 border border-white/5 rounded-lg px-4 py-3 md:col-span-2">
@@ -430,8 +430,8 @@ const loadDetail = async () => {
       instancesAPI.getLogs(props.id)
     ])
     instanceData.value = infoResponse.data
-    console.log("查看InstanceData"+instanceData.value?.containerInfo )
-    console.log(instanceData.value?.containerInfo )
+    // console.log("查看InstanceData"+instanceData.value?.containerInfo )
+    // console.log(instanceData.value?.containerInfo )
     detailLogs.value = decodeUtf8(logsResponse.data)
     scrollConsoleToBottom()
   } catch (error) {

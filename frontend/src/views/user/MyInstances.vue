@@ -80,9 +80,9 @@
               </p>
               <p
                 class="font-mono text-[11px] truncate text-slate-200"
-                :title="instance.dockerImage || 'hackebein/garrysmod:latest'"
+                :title="instance.dockerImage || 'steamcmd/steamcmd:latest'"
               >
-                {{ instance.dockerImage || 'hackebein/garrysmod:latest' }}
+                {{ instance.dockerImage || 'steamcmd/steamcmd:latest' }}
               </p>
             </div>
           </div>
