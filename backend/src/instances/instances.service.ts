@@ -36,7 +36,7 @@ export class InstancesService {
       await this.dockerService.createHostDirectory(createInstanceDto.hostDirectory);
     }
 
-    // 准备 Docker 容器配置（简化版：只配置目录挂载）
+    // 准备 Docker 容器配置（简化版：只配置目录挂载和启动命令）
     const dockerOptions: any = {};
 
     // 如果指定了挂载目录，添加到配置中
@@ -45,6 +45,19 @@ export class InstancesService {
         Binds: [`${createInstanceDto.hostDirectory}:${createInstanceDto.containerDirectory}`],
       };
     }
+
+    // 设置 Docker 启动命令（默认下载 GMOD 4020）
+    // 这个命令会在容器启动时执行，用于初始化环境
+    const defaultDockerCmd = `
+      bash -lc '
+        mkdir -p /srv/4020;
+        ./steamcmd.sh +login anonymous +force_install_dir /srv/4020 +app_update 4020 validate +quit;
+        echo "GMOD 4020 下载完成，文件在 /srv/4020";
+        tail -f /dev/null
+      '
+    `.trim();
+
+    dockerOptions.Cmd = ['/bin/sh', '-c', defaultDockerCmd];
 
     // 创建 Docker 容器（只创建，不启动）
     const dockerId = await this.dockerService.createContainer(

@@ -135,7 +135,7 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="默认: lacledeslan/steamcmd"
             />
-            <p class="text-xs text-gray-500 mt-1">留空则使用默认镜像 lacledeslan/steamcmd</p>
+            <p class="text-xs text-gray-500 mt-1">留空则使用默认镜像 lacledeslan/steamcmd，容器将自动下载 GMOD</p>
           </div>
           <div class="flex justify-end space-x-3">
             <button
@@ -366,7 +366,12 @@ const createInstance = async () => {
   try {
     await instancesAPI.create(createForm.value)
     showCreateModal.value = false
-    createForm.value = { name: '', dockerImage: '', hostDirectory: '', containerDirectory: '' }
+    createForm.value = {
+      name: '',
+      dockerImage: '',
+      hostDirectory: '',
+      containerDirectory: '/opt/steam/garrysmod/addons'
+    }
     await loadInstances()
     notifications.success('实例创建成功')
   } catch (error) {

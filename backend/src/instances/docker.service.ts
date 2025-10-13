@@ -19,8 +19,8 @@ export class DockerService {
 
       await this.ensureImageAvailable(normalizedImage);
 
-      // 简化配置：不需要端口映射和环境变量
-      const containerConfig = {
+      // 基础配置
+      const containerConfig: any = {
         name: `gmod_${name}`,
         Image: normalizedImage,
         Tty: true,
@@ -39,8 +39,16 @@ export class DockerService {
           },
           ...(options?.HostConfig || {}),
         },
-        ...options,
       };
+
+      // 如果提供了启动命令，添加到配置中
+      if (options?.Cmd) {
+        containerConfig.Cmd = options.Cmd;
+      }
+
+      // 合并其他配置（但不覆盖 HostConfig）
+      const { Cmd, HostConfig, ...otherOptions } = options || {};
+      Object.assign(containerConfig, otherOptions);
 
       const container = await this.docker.createContainer(containerConfig);
       return container.id;
