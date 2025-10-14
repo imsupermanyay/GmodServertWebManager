@@ -50,18 +50,19 @@ export class InstancesService {
     // 这个命令会在容器启动时执行，用于初始化环境
     const defaultDockerCmd = `
       bash -c '
-        set -e
-
         echo "[INIT] ========== 容器初始化开始 =========="
+        echo "[INIT] 容器启动时间: $(date)"
 
         # 检查并安装 32 位运行库
         if [ ! -f /usr/lib/i386-linux-gnu/libstdc++.so.6 ]; then
-          echo "[INIT] 安装 32 位运行库..."
-          apt-get update > /dev/null 2>&1 || true
-          DEBIAN_FRONTEND=noninteractive apt-get install -y lib32gcc-s1 lib32stdc++6 libc6-i386 > /dev/null 2>&1 || true
-          echo "[INIT] 依赖库安装完成"
+          echo "[INIT] 开始安装 32 位运行库，请稍候..."
+          echo "[INIT] 正在更新软件包列表..."
+          apt-get update -qq 2>&1 | tail -5
+          echo "[INIT] 正在安装 lib32gcc-s1 lib32stdc++6 libc6-i386..."
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lib32gcc-s1 lib32stdc++6 libc6-i386 2>&1 | grep -E "Setting up|Processing" || true
+          echo "[INIT] ✓ 32 位运行库安装完成"
         else
-          echo "[INIT] 32 位运行库已存在"
+          echo "[INIT] ✓ 32 位运行库已存在，跳过安装"
         fi
 
         # 设置 Steam 安装目录
@@ -69,16 +70,17 @@ export class InstancesService {
 
         # 检查是否已经下载过 GMOD
         if [ ! -d "$INSTALL_DIR" ]; then
-          echo "[INIT] 开始下载 GMOD 服务器..."
+          echo "[INIT] 开始下载 GMOD 服务器（AppID 4020），此过程可能需要 5-15 分钟..."
           mkdir -p /app/Steam
           cd /app
           ./steamcmd.sh +force_install_dir /app/Steam +login anonymous +app_update 4020 validate +quit
-          echo "[INIT] GMOD 服务器下载完成"
+          echo "[INIT] ✓ GMOD 服务器下载完成"
         else
-          echo "[INIT] GMOD 服务器已存在，跳过下载"
+          echo "[INIT] ✓ GMOD 服务器已存在，跳过下载"
         fi
 
         echo "[INIT] ========== 初始化完成，容器保持运行 =========="
+        echo "[INIT] 完成时间: $(date)"
 
         # 保持容器运行
         tail -f /dev/null
