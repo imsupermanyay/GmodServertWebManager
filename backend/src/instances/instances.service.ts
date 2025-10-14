@@ -278,10 +278,14 @@ export class InstancesService {
 
     const command = './srcds_run ' + startupArgs;
 
-    await this.dockerService.execCommand(instance.dockerId, command, {
+    // 先用非后台模式测试，看看是否有错误信息
+    // TODO: 确认命令正确后改回 detach: true
+    const result = await this.dockerService.execCommand(instance.dockerId, command, {
       cwd: '/app/Steam/steamapps/common/GarrysModDS',
-      detach: true, // 必须后台执行，因为 srcds_run 是持续运行的进程
+      detach: false, // 临时改为 false，查看启动错误
     });
+
+    console.log('[startServer] 启动服务器输出:', result.output);
 
     return { message: '服务器启动命令已发送' };
   }
