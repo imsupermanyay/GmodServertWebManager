@@ -55,24 +55,33 @@ export class InstancesService {
 
         # 检查并安装 32 位运行库
         if [ ! -f /usr/lib/i386-linux-gnu/libstdc++.so.6 ]; then
-          echo "[INIT] 开始安装 32 位运行库，请稍候..."
+          echo "[INIT] =========================================="
+          echo "[INIT] 开始安装 32 位运行库..."
+          echo "[INIT] =========================================="
 
           # 使用国内镜像源加速（检测是否为 Debian）
           if [ -f /etc/apt/sources.list ] && grep -q "debian" /etc/apt/sources.list; then
-            echo "[INIT] 配置阿里云镜像源以加速下载..."
+            echo "[INIT] [1/3] 配置阿里云镜像源以加速下载..."
             cp /etc/apt/sources.list /etc/apt/sources.list.bak 2>/dev/null || true
             cat > /etc/apt/sources.list << "EOFMIRROR"
 deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware
 deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware
 deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non-free non-free-firmware
 EOFMIRROR
+            echo "[INIT] ✓ 镜像源配置完成"
           fi
 
-          echo "[INIT] 正在更新软件包列表..."
-          apt-get update -qq 2>&1 | tail -3
-          echo "[INIT] 正在安装 lib32gcc-s1 lib32stdc++6 libc6-i386..."
-          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lib32gcc-s1 lib32stdc++6 libc6-i386 2>&1 | grep -E "Setting up|Unpacking" || true
-          echo "[INIT] ✓ 32 位运行库安装完成"
+          echo "[INIT] [2/3] 正在更新软件包列表（预计 30-60 秒）..."
+          apt-get update 2>&1 | grep -E "Get:|Fetched|Reading" | head -20
+          echo "[INIT] ✓ 软件包列表更新完成"
+
+          echo "[INIT] [3/3] 正在安装 lib32gcc-s1, lib32stdc++6, libc6-i386（预计 2-5 分钟）..."
+          DEBIAN_FRONTEND=noninteractive apt-get install -y lib32gcc-s1 lib32stdc++6 libc6-i386 2>&1 | grep -E "Unpacking|Setting up|Processing|Selecting|Get:" | while read line; do
+            echo "[INIT]   $line"
+          done
+          echo "[INIT] =========================================="
+          echo "[INIT] ✓ 32 位运行库安装完成！"
+          echo "[INIT] =========================================="
         else
           echo "[INIT] ✓ 32 位运行库已存在，跳过安装"
         fi
