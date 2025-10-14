@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="flex flex-col gap-6 h-[calc(100vh-5rem)] text-slate-100">
     <header class="flex flex-col gap-4 flex-none xl:flex-row xl:items-start xl:justify-between">
       <div class="space-y-2">
@@ -25,49 +25,76 @@
           监控实例状态、资源占用与控制台输出，快速定位问题与执行运维操作。
         </p>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <button
-          @click="refreshAll"
-          :disabled="isLoading"
-          class="px-4 py-2 text-sm font-medium rounded-lg border border-blue-400/40 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20 hover:border-blue-300/70 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          手动刷新
-        </button>
-        <button
-          @click="openCfgEditor"
-          :disabled="!instanceData"
-          class="px-4 py-2 text-sm font-medium rounded-lg border border-purple-400/40 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 hover:border-purple-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          编辑 CFG
-        </button>
-        <button
-          @click="openStartupViewer"
-          :disabled="!instanceData"
-          class="px-4 py-2 text-sm font-medium rounded-lg border border-indigo-400/40 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/20 hover:border-indigo-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          查看启动项
-        </button>
-        <button
-          @click="startInstance"
-          :disabled="!instanceData || instanceData.status === 'RUNNING'"
-          class="px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:border-emerald-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          启动
-        </button>
-        <button
-          @click="stopInstance"
-          :disabled="!instanceData || instanceData.status === 'STOPPED'"
-          class="px-4 py-2 text-sm font-medium rounded-lg border border-rose-400/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 hover:border-rose-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          停止
-        </button>
-        <button
-          @click="restartInstance"
-          :disabled="!instanceData || instanceData.status !== 'RUNNING'"
-          class="px-4 py-2 text-sm font-medium rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 hover:border-amber-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          重启
-        </button>
+      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div class="flex flex-wrap gap-2">
+          <button
+            @click="refreshAll"
+            :disabled="isLoading"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-blue-400/40 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20 hover:border-blue-300/70 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            手动刷新
+          </button>
+          <button
+            @click="openCfgEditor"
+            :disabled="!instanceData"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-purple-400/40 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 hover:border-purple-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            编辑 CFG
+          </button>
+          <button
+            @click="openStartupViewer"
+            :disabled="!instanceData"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-indigo-400/40 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/20 hover:border-indigo-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            查看启动项
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            @click="startInstance"
+            :disabled="!instanceData || isContainerRunning || containerActionLoading"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:border-emerald-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            启动容器
+          </button>
+          <button
+            @click="stopInstance"
+            :disabled="!instanceData || !isContainerRunning || containerActionLoading"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-rose-400/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 hover:border-rose-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            关闭容器
+          </button>
+          <button
+            @click="restartInstance"
+            :disabled="!instanceData || !isContainerRunning || containerActionLoading"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 hover:border-amber-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            重启容器
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            @click="startServer"
+            :disabled="!instanceData || !isContainerRunning || serverActionLoading"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:border-emerald-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            启动服务器
+          </button>
+          <button
+            @click="stopServer"
+            :disabled="!instanceData || !isContainerRunning || serverActionLoading"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-rose-400/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 hover:border-rose-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            关闭服务器
+          </button>
+          <button
+            @click="restartServer"
+            :disabled="!instanceData || !isContainerRunning || serverActionLoading"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 hover:border-amber-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            重启服务器
+          </button>
+        </div>
       </div>
     </header>
 
@@ -345,6 +372,7 @@ const notifications = useNotificationStore()
 
 const instanceData = ref(null)
 const detailLogs = ref('')
+const logCursor = ref(null)
 const autoRefresh = ref(true)
 const isLoading = ref(false)
 const commandInput = ref('')
@@ -354,6 +382,8 @@ const customCfgContent = ref('')
 const isSavingCfg = ref(false)
 const showStartupModal = ref(false)
 const startupOptionContent = ref('')
+const containerActionLoading = ref(false)
+const serverActionLoading = ref(false)
 
 const consoleRef = ref(null)
 let refreshTimer = null
@@ -365,6 +395,7 @@ const portMappings = computed(() => containerInfo.value?.ports || [])
 const formattedUptime = computed(() =>
   formatDuration(containerInfo.value?.uptimeSeconds || 0)
 )
+const isContainerRunning = computed(() => instanceData.value?.status === 'RUNNING')
 
 
 // 格式化端口显示
@@ -410,18 +441,56 @@ const scrollConsoleToBottom = () => {
   })
 }
 
-const loadDetail = async () => {
+const appendLogs = (text) => {
+  if (!text) return
+
+  const needsSeparator =
+    detailLogs.value &&
+    !detailLogs.value.endsWith('\n') &&
+    !text.startsWith('\n')
+
+  detailLogs.value += needsSeparator ? `\n${text}` : text
+}
+
+const applyLogsPayload = (payload, reset = false) => {
+  const logsText = payload?.logs ?? ''
+
+  if (reset || detailLogs.value === '' || logCursor.value === null) {
+    detailLogs.value = logsText
+  } else if (logsText) {
+    appendLogs(logsText)
+  }
+
+  if (typeof payload?.cursor === 'number') {
+    logCursor.value = payload.cursor
+  } else if (reset && !payload?.cursor) {
+    logCursor.value = null
+  }
+}
+
+const loadDetail = async (reset = false) => {
   if (refreshInFlight) return
   refreshInFlight = true
-  isLoading.value = !instanceData.value
+
+  const shouldShowLoading = reset || !instanceData.value
+  if (shouldShowLoading) {
+    isLoading.value = true
+  }
+
+  if (reset) {
+    logCursor.value = null
+  }
+
+  const useCursor = !reset && logCursor.value !== null
+  const logParams = useCursor ? { since: logCursor.value } : undefined
 
   try {
     const [infoResponse, logsResponse] = await Promise.all([
       instancesAPI.getInfo(props.id),
-      instancesAPI.getLogs(props.id)
+      instancesAPI.getLogs(props.id, logParams)
     ])
     instanceData.value = infoResponse.data
-    detailLogs.value = logsResponse.data
+    applyLogsPayload(logsResponse.data, reset || !useCursor)
     scrollConsoleToBottom()
   } catch (error) {
     notifications.error(
@@ -429,19 +498,28 @@ const loadDetail = async () => {
       { title: '实例详情' }
     )
   } finally {
-    isLoading.value = false
+    if (shouldShowLoading) {
+      isLoading.value = false
+    }
     refreshInFlight = false
   }
 }
 
 const refreshAll = () => {
-  loadDetail()
+  loadDetail(true)
 }
 
-const refreshLogs = async () => {
+const refreshLogs = async (reset = false) => {
+  if (reset) {
+    logCursor.value = null
+  }
+
+  const useCursor = !reset && logCursor.value !== null
+  const logParams = useCursor ? { since: logCursor.value } : undefined
+
   try {
-    const response = await instancesAPI.getLogs(props.id)
-    detailLogs.value = response.data
+    const response = await instancesAPI.getLogs(props.id, logParams)
+    applyLogsPayload(response.data, reset || !useCursor)
     scrollConsoleToBottom()
   } catch (error) {
     notifications.error(
@@ -480,55 +558,139 @@ watch(detailLogs, () => {
 })
 
 const startInstance = async () => {
+  if (containerActionLoading.value) return
+
+  containerActionLoading.value = true
   try {
     await instancesAPI.start(props.id)
     notifications.success('实例启动成功')
-    await loadDetail()
+    await loadDetail(true)
   } catch (error) {
     notifications.error(
       error.response?.data?.message || '启动失败',
       { title: '启动实例失败' }
     )
+  } finally {
+    containerActionLoading.value = false
   }
 }
 
 const stopInstance = async () => {
   if (!confirm('确定要停止这个实例吗？')) return
+  if (containerActionLoading.value) return
+
+  containerActionLoading.value = true
   try {
     await instancesAPI.stop(props.id)
     notifications.success('实例已停止')
-    await loadDetail()
+    await loadDetail(true)
   } catch (error) {
     notifications.error(
       error.response?.data?.message || '停止失败',
       { title: '停止实例失败' }
     )
+  } finally {
+    containerActionLoading.value = false
   }
 }
 
 const restartInstance = async () => {
   if (!confirm('确定要重启这个实例吗？')) return
+  if (containerActionLoading.value) return
+
+  containerActionLoading.value = true
   try {
     await instancesAPI.restart(props.id)
     notifications.success('实例重启成功')
-    await loadDetail()
+    await loadDetail(true)
   } catch (error) {
     notifications.error(
       error.response?.data?.message || '重启失败',
       { title: '重启实例失败' }
     )
+  } finally {
+    containerActionLoading.value = false
   }
 }
 
+const startServer = async () => {
+  if (!instanceData.value || serverActionLoading.value) return
+  if (!isContainerRunning.value) {
+    notifications.error('容器未运行，无法启动服务器', { title: '启动服务器失败' })
+    return
+  }
+
+  serverActionLoading.value = true
+  try {
+    const response = await instancesAPI.startServer(props.id)
+    notifications.success(response.data?.message || '服务器启动命令已发送')
+    setTimeout(() => {
+      refreshLogs()
+    }, 1500)
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '启动服务器失败',
+      { title: '启动服务器失败' }
+    )
+  } finally {
+    serverActionLoading.value = false
+  }
+}
+
+const stopServer = async () => {
+  if (!instanceData.value || serverActionLoading.value) return
+
+  serverActionLoading.value = true
+  try {
+    const response = await instancesAPI.stopServer(props.id)
+    notifications.success(response.data?.message || '服务器停止命令已执行')
+    setTimeout(() => {
+      refreshLogs()
+    }, 1000)
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '停止服务器失败',
+      { title: '停止服务器失败' }
+    )
+  } finally {
+    serverActionLoading.value = false
+  }
+}
+
+const restartServer = async () => {
+  if (!instanceData.value || serverActionLoading.value) return
+
+  serverActionLoading.value = true
+  try {
+    const response = await instancesAPI.restartServer(props.id)
+    notifications.success(response.data?.message || '服务器重启命令已发送')
+    setTimeout(() => {
+      refreshLogs()
+    }, 1500)
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '重启服务器失败',
+      { title: '重启服务器失败' }
+    )
+  } finally {
+    serverActionLoading.value = false
+  }
+}
 const sendCommand = async () => {
   const command = commandInput.value.trim()
   if (!command) return
 
   try {
-    await instancesAPI.execCommand(props.id, { command })
+    const response = await instancesAPI.execCommand(props.id, { command })
+    const output = response.data?.output || ''
+    const timestamp = new Date().toLocaleTimeString()
+
+    appendLogs(`[${timestamp}] > ${command}\n${output || '(无输出)'}`)
+    scrollConsoleToBottom()
+
     notifications.success(`命令已发送: ${command}`)
     commandInput.value = ''
-    // 等待一下再刷新日志，让命令执行结果出现
+
     setTimeout(() => {
       refreshLogs()
     }, 1000)

@@ -87,7 +87,10 @@ export const instancesAPI = {
   start: (id) => api.post(`/instances/${id}/start`),
   stop: (id) => api.post(`/instances/${id}/stop`),
   restart: (id) => api.post(`/instances/${id}/restart`),
-  getLogs: (id) => api.get(`/instances/${id}/logs`),
+  startServer: (id) => api.post(`/instances/${id}/server/start`),
+  stopServer: (id) => api.post(`/instances/${id}/server/stop`),
+  restartServer: (id) => api.post(`/instances/${id}/server/restart`),
+  getLogs: (id, params) => api.get(`/instances/${id}/logs`, { params }),
   getInfo: (id) => api.get(`/instances/${id}/info`),
   execCommand: (id, data) => api.post(`/instances/${id}/exec`, data)
 }

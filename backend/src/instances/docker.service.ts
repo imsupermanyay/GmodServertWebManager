@@ -94,46 +94,35 @@ export class DockerService {
     }
   }
 
-  async getContainerLogs(dockerId: string): Promise<string> {
+  async getContainerLogs(
+    dockerId: string,
+    options?: { since?: number },
+  ): Promise<{ logs: string; cursor: number | null }> {
     try {
       const container = this.docker.getContainer(dockerId);
-      const logs = await container.logs({
+
+      const logOptions: Docker.ContainerLogsOptions = {
         stdout: true,
         stderr: true,
-        tail: 100,
-        timestamps: false, // 不显示时间戳
-      });
+        follow: false,
+        timestamps: true,
+        tail: options?.since != null ? 0 : 1000,
+      };
 
-      // Docker logs 返回的是 Buffer，包含 stream header
-      // 每个消息的格式: [8 bytes header][message content]
-      // Header 格式: [stream type, 0, 0, 0, size1, size2, size3, size4]
-      let output = '';
-      const buffer = Buffer.isBuffer(logs) ? logs : Buffer.from(logs);
-
-      let offset = 0;
-      while (offset < buffer.length) {
-        // 读取 header (8 bytes)
-        if (offset + 8 > buffer.length) break;
-
-        // 读取消息长度 (大端序)
-        const size = buffer.readUInt32BE(offset + 4);
-
-        // 跳过 header，读取实际内容
-        offset += 8;
-
-        if (offset + size > buffer.length) break;
-
-        const message = buffer.slice(offset, offset + size).toString('utf8');
-        output += message;
-
-        offset += size;
+      if (options?.since != null) {
+        logOptions.since = options.since;
       }
 
-      // 移除 ANSI 转义序列（颜色代码等）
-      // eslint-disable-next-line no-control-regex
-      output = output.replace(/\x1b\[[0-9;]*m/g, '');
+      const logs = await container.logs(logOptions);
+      const buffer = Buffer.isBuffer(logs) ? logs : Buffer.from(logs);
 
-      return output;
+      const { text, cursor } = this.parseDockerLogs(buffer, options?.since);
+      const sanitized = this.stripAnsiSequences(text);
+
+      return {
+        logs: sanitized || (options?.since != null ? '' : '暂无日志输出。'),
+        cursor,
+      };
     } catch (error) {
       throw new InternalServerErrorException(`获取日志失败: ${error.message}`);
     }
@@ -314,20 +303,32 @@ export class DockerService {
     }
   }
 
-  async execCommand(dockerId: string, command: string): Promise<{ output: string }> {
+  async execCommand(
+    dockerId: string,
+    command: string,
+    options?: { detach?: boolean; cwd?: string },
+  ): Promise<{ output: string }> {
     try {
       const container = this.docker.getContainer(dockerId);
 
-      // 创建 exec 实例
+      const commandWithCwd = this.wrapCommandWithCwd(command, options?.cwd);
+      const attachStreams = !options?.detach;
+
       const exec = await container.exec({
-        Cmd: ['/bin/sh', '-c', command],
-        AttachStdout: true,
-        AttachStderr: true,
+        Cmd: ['/bin/sh', '-c', commandWithCwd],
+        AttachStdout: attachStreams,
+        AttachStderr: attachStreams,
         Tty: false,
       });
 
-      // 执行命令
-      const stream = await exec.start({ Detach: false, Tty: false });
+      const stream = await exec.start({
+        Detach: !!options?.detach,
+        Tty: false,
+      });
+
+      if (options?.detach) {
+        return { output: '命令已在后台执行' };
+      }
 
       // 收集输出
       return new Promise((resolve, reject) => {
@@ -348,6 +349,103 @@ export class DockerService {
     } catch (error) {
       throw new InternalServerErrorException(`执行命令失败: ${error.message}`);
     }
+  }
+
+  private wrapCommandWithCwd(command: string, cwd?: string): string {
+    if (!cwd) {
+      return command;
+    }
+
+    const escapedCwd = cwd.replace(/'/g, "'\\''");
+    return `cd '${escapedCwd}' && ${command}`;
+  }
+
+  private parseDockerLogs(buffer: Buffer, since?: number): { text: string; cursor: number | null } {
+    if (!buffer || buffer.length === 0) {
+      return { text: '', cursor: since ?? null };
+    }
+
+    const isMultiplexed =
+      buffer.length >= 8 &&
+      buffer[0] <= 2 &&
+      buffer[1] === 0 &&
+      buffer[2] === 0 &&
+      buffer[3] === 0;
+
+    if (!isMultiplexed) {
+      const text = buffer.toString('utf8');
+      const cursor = this.updateCursorFromText(text, since);
+      return { text, cursor };
+    }
+
+    let output = '';
+    let cursor = since ?? null;
+    let offset = 0;
+
+    while (offset + 8 <= buffer.length) {
+      const size = buffer.readUInt32BE(offset + 4);
+      offset += 8;
+
+      if (size <= 0 || offset + size > buffer.length) {
+        break;
+      }
+
+      const message = buffer.slice(offset, offset + size).toString('utf8');
+      output += message;
+      cursor = this.updateCursorFromText(message, cursor);
+      offset += size;
+    }
+
+    if (!output) {
+      const fallback = buffer.toString('utf8');
+      output = fallback;
+      cursor = this.updateCursorFromText(fallback, cursor);
+    }
+
+    return { text: output, cursor };
+  }
+
+  private updateCursorFromText(text: string, current: number | null = null): number | null {
+    if (!text) {
+      return current ?? null;
+    }
+
+    const lines = text.split('\n');
+    let cursor = current ?? null;
+
+    for (const line of lines) {
+      const match = line.match(/^(\d{4}-\d{2}-\d{2}T[0-9:.+-]+)\s/);
+      if (!match) {
+        continue;
+      }
+
+      const parsed = Date.parse(match[1]);
+      if (Number.isNaN(parsed)) {
+        continue;
+      }
+
+      const seconds = parsed / 1000;
+      cursor = cursor === null ? seconds : Math.max(cursor, seconds);
+    }
+
+    if (cursor === null && text.trim()) {
+      cursor = Date.now() / 1000;
+    }
+
+    if (cursor !== null) {
+      cursor = Number((cursor + 0.001).toFixed(3));
+    }
+
+    return cursor;
+  }
+
+  private stripAnsiSequences(value: string): string {
+    if (!value) {
+      return '';
+    }
+
+    // eslint-disable-next-line no-control-regex
+    return value.replace(/\x1b\[[0-9;]*m/g, '');
   }
 
   async writeFileToContainer(dockerId: string, filePath: string, content: string): Promise<void> {

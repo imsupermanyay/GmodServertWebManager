@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Instance } from './entities/instance.entity';
@@ -49,12 +49,23 @@ export class InstancesService {
     // 设置 Docker 启动命令（默认下载 GMOD 4020）
     // 这个命令会在容器启动时执行，用于初始化环境
     const defaultDockerCmd = `
-      bash -lc '
-        mkdir -p /opt/steam;
-        ./steamcmd.sh +login anonymous +force_install_dir /opt/steam +app_update 4020 validate +quit;
-        echo "GMOD 4020 下载完成，文件在 /opt/steam";
-        tail -f /dev/null
-      '
+      set -e
+      INSTALL_ROOT= /app;
+      INSTALL_DIR="$INSTALL_ROOT/Steam/steamapps/common/GarrysModDS"
+
+      # 需要的目录
+      if [ !"$INSTALL_DIR" ]; then
+        echo "[INIT] 首次安装 4020..."
+        ./steamcmd.sh +login anonymous +force_install_dir "$INSTALL_ROOT" +app_update 4020 validate +quit
+        touch "$MARKER"
+        echo "[INIT] 4020 首次安装完成，文件在 $INSTALL_DIR/"
+      else
+        echo "[SKIP] 检测到 $MARKER，已安装过，跳过下载/校验。"
+      fi
+
+      # 保持容器不退出
+      tail -f /dev/null
+
     `.trim();
 
     dockerOptions.Cmd = ['/bin/sh', '-c', defaultDockerCmd];
@@ -247,14 +258,81 @@ export class InstancesService {
     return this.instancesRepository.save(instance);
   }
 
-  async getLogs(id: number, userId?: number, userRole?: UserRole): Promise<string> {
+  async startServer(
+    id: number,
+    userId?: number,
+    userRole?: UserRole,
+  ): Promise<{ message: string }> {
+    const instance = await this.findOne(id, userId, userRole);
+
+    if (!instance.dockerId) {
+      throw new ConflictException('实例没有关联到 Docker 容器');
+    }
+
+    await this.ensureContainerRunning(instance);
+
+    const startupArgs = await this.getStartupArgs(instance);
+    const command = startupArgs ? './srcds_run ' + startupArgs : './srcds_run';
+
+    await this.dockerService.execCommand(instance.dockerId, command, {
+      cwd: '/app/Steam/steamapps/common/GarrysModDS',
+      detach: true,
+    });
+
+    return { message: '服务器启动命令已发送' };
+  }
+
+  async stopServer(
+    id: number,
+    userId?: number,
+    userRole?: UserRole,
+  ): Promise<{ message: string }> {
+    const instance = await this.findOne(id, userId, userRole);
+
+    if (!instance.dockerId) {
+      throw new ConflictException('实例没有关联到 Docker 容器');
+    }
+
+    await this.ensureContainerRunning(instance);
+
+    const stopCommand = [
+      'if [ -x ./srcds_run ]; then ./srcds_run -stop >/dev/null 2>&1 || true; fi',
+      'pkill -f srcds_linux >/dev/null 2>&1 || true',
+      'pkill -f srcds_run >/dev/null 2>&1 || true',
+    ].join('; ');
+
+    const result = await this.dockerService.execCommand(instance.dockerId, stopCommand, {
+      cwd: '/app/Steam/steamapps/common/GarrysModDS',
+    });
+
+    const message = result.output?.trim() || '服务器停止命令已执行';
+    return { message };
+  }
+
+  async restartServer(
+    id: number,
+    userId?: number,
+    userRole?: UserRole,
+  ): Promise<{ message: string }> {
+    await this.stopServer(id, userId, userRole);
+    await this.delay(2000);
+    await this.startServer(id, userId, userRole);
+
+    return { message: '服务器重启命令已发送' };
+  }
+  async getLogs(
+    id: number,
+    userId?: number,
+    userRole?: UserRole,
+    since?: number,
+  ): Promise<{ logs: string; cursor: number | null }> {
     const instance = await this.findOne(id, userId, userRole);
 
     if (!instance.dockerId) {
       throw new ConflictException('实例没有关联的 Docker 容器');
     }
 
-    return this.dockerService.getContainerLogs(instance.dockerId);
+    return this.dockerService.getContainerLogs(instance.dockerId, { since });
   }
 
   async getMyInstances(userId: number): Promise<Instance[]> {
@@ -293,4 +371,42 @@ export class InstancesService {
 
     return this.dockerService.execCommand(instance.dockerId, command);
   }
+  private async ensureContainerRunning(instance: Instance): Promise<void> {
+    const status = await this.dockerService.getContainerStatus(instance.dockerId!);
+    if ((status || '').toLowerCase() !== 'running') {
+      throw new ConflictException('容器未运行，无法执行该操作');
+    }
+  }
+
+  private async getStartupArgs(instance: Instance): Promise<string> {
+    if (!instance.startupOptionId) {
+      return '';
+    }
+
+    const option = await this.startupOptionsRepository.findOne({
+      where: { id: instance.startupOptionId },
+    });
+
+    return this.normalizeStartupArgs(option?.content);
+  }
+
+  private normalizeStartupArgs(content?: string): string {
+    if (!content) {
+      return '';
+    }
+
+    return content
+      .split(/\r?\n/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  private async delay(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
 }
+
+
+
+

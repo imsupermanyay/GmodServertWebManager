@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query } from '@nestjs/common';
 import { InstancesService } from './instances.service';
 import { CreateInstanceDto } from './dto/create-instance.dto';
 import { UpdateInstanceDto } from './dto/update-instance.dto';
@@ -60,9 +60,28 @@ export class InstancesController {
     return this.instancesService.restart(+id, req.user.id, req.user.role);
   }
 
+  @Post(':id/server/start')
+  startServer(@Param('id') id: string, @Request() req) {
+    return this.instancesService.startServer(+id, req.user.id, req.user.role);
+  }
+
+  @Post(':id/server/stop')
+  stopServer(@Param('id') id: string, @Request() req) {
+    return this.instancesService.stopServer(+id, req.user.id, req.user.role);
+  }
+
+  @Post(':id/server/restart')
+  restartServer(@Param('id') id: string, @Request() req) {
+    return this.instancesService.restartServer(+id, req.user.id, req.user.role);
+  }
+
   @Get(':id/logs')
-  getLogs(@Param('id') id: string, @Request() req) {
-    return this.instancesService.getLogs(+id, req.user.id, req.user.role);
+  getLogs(@Param('id') id: string, @Request() req, @Query('since') since?: string) {
+    const sinceValue = since !== undefined ? Number(since) : undefined;
+    const normalizedSince =
+      sinceValue !== undefined && !Number.isNaN(sinceValue) ? sinceValue : undefined;
+
+    return this.instancesService.getLogs(+id, req.user.id, req.user.role, normalizedSince);
   }
 
   @Get(':id/info')
