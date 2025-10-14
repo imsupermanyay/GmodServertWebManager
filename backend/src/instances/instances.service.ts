@@ -276,18 +276,23 @@ export class InstancesService {
       throw new ConflictException('实例没有关联到启动项！');
     }
 
-    const command = './srcds_run ' + startupArgs;
+    // 使用 nohup 和 & 让服务器在后台运行，命令会立即返回
+    // 标准输出和错误都重定向到 /dev/null，实际日志可以通过 docker logs 查看
+    const command = `nohup ./srcds_run ${startupArgs} > /dev/null 2>&1 &`;
 
-    // 先用非后台模式测试，看看是否有错误信息
-    // TODO: 确认命令正确后改回 detach: true
+    console.log('[startServer] 准备启动服务器');
+    console.log(`  启动参数: ${startupArgs}`);
+    console.log(`  完整命令: ${command}`);
+
     const result = await this.dockerService.execCommand(instance.dockerId, command, {
       cwd: '/app/Steam/steamapps/common/GarrysModDS',
-      detach: false, // 临时改为 false，查看启动错误
+      detach: false, // 现在命令会立即返回，不会卡住
     });
 
-    console.log('[startServer] 启动服务器输出:', result.output);
+    console.log('[startServer] 服务器启动命令已执行');
+    console.log(`  输出: ${result.output}`);
 
-    return { message: '服务器启动命令已发送' };
+    return { message: '服务器启动命令已发送，请查看控制台输出面板查看启动日志' };
   }
 
   async stopServer(
