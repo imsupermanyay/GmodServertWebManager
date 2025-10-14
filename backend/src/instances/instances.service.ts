@@ -59,6 +59,12 @@ export class InstancesService {
           echo "[INIT] 开始安装 32 位运行库..."
           echo "[INIT] =========================================="
 
+          # 清理可能残留的 apt 进程
+          pkill -9 apt-get 2>/dev/null || true
+          pkill -9 apt 2>/dev/null || true
+          rm -f /var/lib/apt/lists/lock /var/lib/dpkg/lock* 2>/dev/null || true
+          sleep 1
+
           # 使用国内镜像源加速（检测是否为 Debian）
           if [ -f /etc/apt/sources.list ] && grep -q "debian" /etc/apt/sources.list; then
             echo "[INIT] [1/3] 配置阿里云镜像源以加速下载..."
@@ -72,13 +78,29 @@ EOFMIRROR
           fi
 
           echo "[INIT] [2/3] 正在更新软件包列表（预计 30-60 秒）..."
-          apt-get update 2>&1 | grep -E "Get:|Fetched|Reading" | head -20
+          # 后台运行 apt-get，实时显示进度
+          apt-get update > /tmp/apt-update.log 2>&1 &
+          APT_PID=$!
+          # 实时显示进度（每秒检查一次）
+          while kill -0 $APT_PID 2>/dev/null; do
+            tail -20 /tmp/apt-update.log 2>/dev/null | grep -E "Get:|Fetched" | tail -5
+            sleep 2
+          done
+          wait $APT_PID
           echo "[INIT] ✓ 软件包列表更新完成"
 
           echo "[INIT] [3/3] 正在安装 lib32gcc-s1, lib32stdc++6, libc6-i386（预计 2-5 分钟）..."
-          DEBIAN_FRONTEND=noninteractive apt-get install -y lib32gcc-s1 lib32stdc++6 libc6-i386 2>&1 | grep -E "Unpacking|Setting up|Processing|Selecting|Get:" | while read line; do
-            echo "[INIT]   $line"
+          # 后台运行 apt-get install，实时显示进度
+          DEBIAN_FRONTEND=noninteractive apt-get install -y lib32gcc-s1 lib32stdc++6 libc6-i386 > /tmp/apt-install.log 2>&1 &
+          INSTALL_PID=$!
+          # 实时显示进度（每秒检查一次）
+          while kill -0 $INSTALL_PID 2>/dev/null; do
+            tail -20 /tmp/apt-install.log 2>/dev/null | grep -E "Unpacking|Setting up|Processing|Selecting" | tail -3 | while read line; do
+              echo "[INIT]   $line"
+            done
+            sleep 2
           done
+          wait $INSTALL_PID
           echo "[INIT] =========================================="
           echo "[INIT] ✓ 32 位运行库安装完成！"
           echo "[INIT] =========================================="
