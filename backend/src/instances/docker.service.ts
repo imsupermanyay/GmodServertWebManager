@@ -25,6 +25,7 @@ export class DockerService {
         Image: normalizedImage,
         Tty: true,
         OpenStdin: true,
+        User: 'root', // 以 root 身份启动，以便安装依赖
         ExposedPorts: {
           '27015/udp': {},
           '27015/tcp': {},

@@ -49,23 +49,40 @@ export class InstancesService {
     // 设置 Docker 启动命令（默认下载 GMOD 4020）
     // 这个命令会在容器启动时执行，用于初始化环境
     const defaultDockerCmd = `
-      set -e
-      INSTALL_ROOT= /app;
-      INSTALL_DIR="$INSTALL_ROOT/Steam/steamapps/common/GarrysModDS"
+      bash -c '
+        set -e
 
-      # 需要的目录
-      if [ !"$INSTALL_DIR" ]; then
-        echo "[INIT] 首次安装 4020..."
-        ./steamcmd.sh +login anonymous +force_install_dir "$INSTALL_ROOT" +app_update 4020 validate +quit
-        touch "$MARKER"
-        echo "[INIT] 4020 首次安装完成，文件在 $INSTALL_DIR/"
-      else
-        echo "[SKIP] 检测到 $MARKER，已安装过，跳过下载/校验。"
-      fi
+        echo "[INIT] ========== 容器初始化开始 =========="
 
-      # 保持容器不退出
-      tail -f /dev/null
+        # 检查并安装 32 位运行库
+        if [ ! -f /usr/lib/i386-linux-gnu/libstdc++.so.6 ]; then
+          echo "[INIT] 安装 32 位运行库..."
+          apt-get update > /dev/null 2>&1 || true
+          DEBIAN_FRONTEND=noninteractive apt-get install -y lib32gcc-s1 lib32stdc++6 libc6-i386 > /dev/null 2>&1 || true
+          echo "[INIT] 依赖库安装完成"
+        else
+          echo "[INIT] 32 位运行库已存在"
+        fi
 
+        # 设置 Steam 安装目录
+        INSTALL_DIR="/app/Steam/steamapps/common/GarrysModDS"
+
+        # 检查是否已经下载过 GMOD
+        if [ ! -d "$INSTALL_DIR" ]; then
+          echo "[INIT] 开始下载 GMOD 服务器..."
+          mkdir -p /app/Steam
+          cd /app
+          ./steamcmd.sh +force_install_dir /app/Steam +login anonymous +app_update 4020 validate +quit
+          echo "[INIT] GMOD 服务器下载完成"
+        else
+          echo "[INIT] GMOD 服务器已存在，跳过下载"
+        fi
+
+        echo "[INIT] ========== 初始化完成，容器保持运行 =========="
+
+        # 保持容器运行
+        tail -f /dev/null
+      '
     `.trim();
 
     dockerOptions.Cmd = ['/bin/sh', '-c', defaultDockerCmd];
@@ -276,63 +293,13 @@ export class InstancesService {
       throw new ConflictException('实例没有关联到启动项！');
     }
 
-    console.log('[startServer] 准备启动服务器');
-    console.log(`  启动参数: ${startupArgs}`);
-
-    // 先检查 srcds_run 文件是否存在
-    try {
-      const checkFile = await this.dockerService.execCommand(
-        instance.dockerId,
-        'ls -lh ./srcds_run 2>&1',
-        { cwd: '/app/Steam/steamapps/common/GarrysModDS', detach: false }
-      );
-      console.log('[startServer] srcds_run 文件检查:');
-      console.log(checkFile.output);
-    } catch (e) {
-      console.log('[startServer] 检查文件失败:', e.message);
-    }
-
-    // 先用简单的命令测试（输出到日志文件，方便查看错误）
+    // 使用 screen 或后台方式运行服务器
     const command = `./srcds_run ${startupArgs} > /tmp/srcds.log 2>&1 &`;
-    console.log(`  完整命令: ${command}`);
 
-    const result = await this.dockerService.execCommand(instance.dockerId, command, {
+    await this.dockerService.execCommand(instance.dockerId, command, {
       cwd: '/app/Steam/steamapps/common/GarrysModDS',
       detach: false,
     });
-
-    console.log('[startServer] 服务器启动命令已执行');
-    console.log(`  输出: ${result.output}`);
-
-    // 等待一小段时间后检查启动日志
-    await this.delay(3000);
-
-    // 读取启动日志
-    try {
-      const logResult = await this.dockerService.execCommand(
-        instance.dockerId,
-        'cat /tmp/srcds.log 2>/dev/null || echo "无启动日志"',
-        { detach: false }
-      );
-      console.log('[startServer] ===== 启动日志 =====');
-      console.log(logResult.output || '无输出');
-      console.log('[startServer] ===== 日志结束 =====');
-    } catch (e) {
-      console.log('[startServer] 无法读取启动日志:', e.message);
-    }
-
-    // 检查进程是否存在（使用 pidof 或 查找进程文件）
-    try {
-      const checkResult = await this.dockerService.execCommand(
-        instance.dockerId,
-        'ls -la /proc/*/comm 2>/dev/null | head -20 || echo "无法列出进程"',
-        { detach: false }
-      );
-      console.log('[startServer] 进程列表:');
-      console.log(checkResult.output || '无输出');
-    } catch (error) {
-      console.log('[startServer] 进程检查失败:', error.message);
-    }
 
     return { message: '服务器启动命令已发送，请查看控制台输出面板查看启动日志' };
   }
