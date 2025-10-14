@@ -280,7 +280,7 @@ export class InstancesService {
 
     await this.dockerService.execCommand(instance.dockerId, command, {
       cwd: '/app/Steam/steamapps/common/GarrysModDS',
-      detach: false,
+      detach: true, // 必须后台执行，因为 srcds_run 是持续运行的进程
     });
 
     return { message: '服务器启动命令已发送' };

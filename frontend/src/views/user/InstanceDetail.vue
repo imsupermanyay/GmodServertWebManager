@@ -628,6 +628,7 @@ const startServer = async () => {
       refreshLogs()
     }, 1500)
   } catch (error) {
+    console.log(error)
     notifications.error(
       error.response?.data?.message || '启动服务器失败',
       { title: '启动服务器失败' }
