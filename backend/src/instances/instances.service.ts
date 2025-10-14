@@ -56,10 +56,22 @@ export class InstancesService {
         # 检查并安装 32 位运行库
         if [ ! -f /usr/lib/i386-linux-gnu/libstdc++.so.6 ]; then
           echo "[INIT] 开始安装 32 位运行库，请稍候..."
+
+          # 使用国内镜像源加速（检测是否为 Debian）
+          if [ -f /etc/apt/sources.list ] && grep -q "debian" /etc/apt/sources.list; then
+            echo "[INIT] 配置阿里云镜像源以加速下载..."
+            cp /etc/apt/sources.list /etc/apt/sources.list.bak 2>/dev/null || true
+            cat > /etc/apt/sources.list << "EOFMIRROR"
+deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware
+deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware
+deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non-free non-free-firmware
+EOFMIRROR
+          fi
+
           echo "[INIT] 正在更新软件包列表..."
-          apt-get update -qq 2>&1 | tail -5
+          apt-get update -qq 2>&1 | tail -3
           echo "[INIT] 正在安装 lib32gcc-s1 lib32stdc++6 libc6-i386..."
-          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lib32gcc-s1 lib32stdc++6 libc6-i386 2>&1 | grep -E "Setting up|Processing" || true
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lib32gcc-s1 lib32stdc++6 libc6-i386 2>&1 | grep -E "Setting up|Unpacking" || true
           echo "[INIT] ✓ 32 位运行库安装完成"
         else
           echo "[INIT] ✓ 32 位运行库已存在，跳过安装"
