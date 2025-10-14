@@ -280,7 +280,7 @@ export class InstancesService {
 
     await this.dockerService.execCommand(instance.dockerId, command, {
       cwd: '/app/Steam/steamapps/common/GarrysModDS',
-      detach: true,
+      detach: false,
     });
 
     return { message: '服务器启动命令已发送' };
