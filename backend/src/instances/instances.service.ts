@@ -94,7 +94,7 @@ EOFMIRROR
           echo "[INIT] [3/3] 正在安装 lib32gcc-s1, lib32stdc++6, libc6-i386（预计 2-5 分钟）..."
           DEBIAN_FRONTEND=noninteractive apt-get install -y lib32gcc-s1 lib32stdc++6 libc6-i386 2>&1 | while IFS= read -r line; do
             case "$line" in
-              *Unpacking*|*Setting\ up*|*Processing*|*Selecting*)
+              *Unpacking*|*"Setting up"*|*Processing*|*Selecting*)
                 echo "[INIT]   $line"
                 ;;
             esac
