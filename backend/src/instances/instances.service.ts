@@ -49,23 +49,23 @@ export class InstancesService {
     // 设置 Docker 启动命令（默认下载 GMOD 4020）
     // 这个命令会在容器启动时执行，用于初始化环境
     const defaultDockerCmd = `
-      bash -c '
+      bash -lc '
+        set -euo pipefail
         echo "[INIT] ========== 容器初始化开始 =========="
         echo "[INIT] 容器启动时间: $(date)"
 
-        # 检查并安装 32 位运行库
+        export DEBIAN_FRONTEND=noninteractive
+        export APT_LISTCHANGES_FRONTEND=none
+
         if [ ! -f /usr/lib/i386-linux-gnu/libstdc++.so.6 ]; then
           echo "[INIT] =========================================="
           echo "[INIT] 开始安装 32 位运行库..."
           echo "[INIT] =========================================="
 
-          # 清理可能残留的 apt 进程和锁文件
           pkill -9 apt-get 2>/dev/null || true
           pkill -9 apt 2>/dev/null || true
-          rm -f /var/lib/apt/lists/lock /var/lib/dpkg/lock* 2>/dev/null || true
-          sleep 1
+          rm -f /var/lib/apt/lists/lock /var/lib/dpkg/lock* /var/cache/apt/archives/lock 2>/dev/null || true
 
-          # 自动检测 Debian 版本并配置国内镜像源
           echo "[INIT] [1/3] 配置阿里云镜像源以加速下载..."
           DEBIAN_VERSION=$(grep VERSION_CODENAME /etc/os-release 2>/dev/null | cut -d= -f2)
           if [ -z "$DEBIAN_VERSION" ]; then
@@ -74,56 +74,43 @@ export class InstancesService {
           echo "[INIT]   检测到 Debian 版本: $DEBIAN_VERSION"
 
           cp /etc/apt/sources.list /etc/apt/sources.list.bak 2>/dev/null || true
-          cat > /etc/apt/sources.list << EOFMIRROR
+          rm -f /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+          cat > /etc/apt/sources.list <<'EOFMIRROR'
 deb http://mirrors.aliyun.com/debian/ $DEBIAN_VERSION main contrib non-free non-free-firmware
 deb http://mirrors.aliyun.com/debian/ $DEBIAN_VERSION-updates main contrib non-free non-free-firmware
 deb http://mirrors.aliyun.com/debian-security $DEBIAN_VERSION-security main contrib non-free non-free-firmware
 EOFMIRROR
           echo "[INIT] ✓ 镜像源配置完成"
 
-          echo "[INIT] [2/3] 正在更新软件包列表（预计 30-60 秒）..."
-          apt-get update 2>&1 | while IFS= read -r line; do
-            case "$line" in
-              Get:*|Fetched*|Reading*)
-                echo "[INIT]   $line"
-                ;;
-            esac
-          done
+          echo "[INIT] [2/3] 正在更新软件包列表（首次约 1-2 分钟）..."
+          apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 update
           echo "[INIT] ✓ 软件包列表更新完成"
 
-          echo "[INIT] [3/3] 正在安装 lib32gcc-s1, lib32stdc++6, libc6-i386（预计 2-5 分钟）..."
-          DEBIAN_FRONTEND=noninteractive apt-get install -y lib32gcc-s1 lib32stdc++6 libc6-i386 2>&1 | while IFS= read -r line; do
-            case "$line" in
-              *Unpacking*|*"Setting up"*|*Processing*|*Selecting*)
-                echo "[INIT]   $line"
-                ;;
-            esac
-          done
+          echo "[INIT] [3/3] 安装 lib32gcc-s1 / lib32stdc++6 / libc6-i386（预计 2-5 分钟）..."
+          apt-get install -y --no-install-recommends lib32gcc-s1 lib32stdc++6 libc6-i386
+          apt-get clean
+          rm -rf /var/lib/apt/lists/*
           echo "[INIT] =========================================="
-          echo "[INIT] ✓ 32 位运行库安装完成！"
+          echo "[INIT] ✓ 32 位运行库安装完成"
           echo "[INIT] =========================================="
         else
           echo "[INIT] ✓ 32 位运行库已存在，跳过安装"
         fi
 
-        # 设置 Steam 安装目录
         INSTALL_DIR="/app/Steam/steamapps/common/GarrysModDS"
-
-        # 检查是否已经下载过 GMOD
         if [ ! -d "$INSTALL_DIR" ]; then
-          echo "[INIT] 开始下载 GMOD 服务器（AppID 4020），此过程可能需要 5-15 分钟..."
+          echo "[INIT] 开始下载 GMOD 服务端（AppID 4020），首轮下载可能需要 5-15 分钟..."
           mkdir -p /app/Steam
           cd /app
           ./steamcmd.sh +force_install_dir /app/Steam +login anonymous +app_update 4020 validate +quit
-          echo "[INIT] ✓ GMOD 服务器下载完成"
+          echo "[INIT] ✓ GMOD 服务端下载完成"
         else
-          echo "[INIT] ✓ GMOD 服务器已存在，跳过下载"
+          echo "[INIT] ✓ GMOD 服务端目录已存在，跳过下载"
         fi
 
-        echo "[INIT] ========== 初始化完成，容器保持运行 =========="
-        echo "[INIT] 完成时间: $(date)"
+        echo "[INIT] ========== 初始化完成，容器进入守护状态 =========="
+        echo "[INIT] 结束时间: $(date)"
 
-        # 保持容器运行
         tail -f /dev/null
       '
     `.trim();
@@ -471,6 +458,11 @@ EOFMIRROR
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
+
+
+
+
+
 
 
 
