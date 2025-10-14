@@ -313,6 +313,14 @@ export class DockerService {
       const commandWithCwd = this.wrapCommandWithCwd(command, options?.cwd);
       const attachStreams = !options?.detach;
 
+      // 打印执行信息
+      console.log('[execCommand] 开始执行容器命令');
+      console.log(`  容器 ID: ${dockerId.substring(0, 12)}...`);
+      console.log(`  原始命令: ${command}`);
+      console.log(`  工作目录: ${options?.cwd || '(默认)'}`);
+      console.log(`  后台执行: ${options?.detach ? '是' : '否'}`);
+      console.log(`  完整命令: ${commandWithCwd}`);
+
       const exec = await container.exec({
         Cmd: ['/bin/sh', '-c', commandWithCwd],
         AttachStdout: attachStreams,
@@ -326,6 +334,7 @@ export class DockerService {
       });
 
       if (options?.detach) {
+        console.log('[execCommand] 命令已在后台执行');
         return { output: '命令已在后台执行' };
       }
 
@@ -338,14 +347,21 @@ export class DockerService {
         });
 
         stream.on('end', () => {
+          console.log('[execCommand] 命令执行完成');
+          console.log(`  输出长度: ${output.length} 字节`);
+          if (output) {
+            console.log(`  输出内容:\n${output.substring(0, 500)}${output.length > 500 ? '...' : ''}`);
+          }
           resolve({ output: output || '命令已发送' });
         });
 
         stream.on('error', (error) => {
+          console.error('[execCommand] 命令执行失败:', error.message);
           reject(error);
         });
       });
     } catch (error) {
+      console.error('[execCommand] 执行容器命令异常:', error.message);
       throw new InternalServerErrorException(`执行命令失败: ${error.message}`);
     }
   }
