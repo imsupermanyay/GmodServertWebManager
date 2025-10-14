@@ -276,50 +276,60 @@ export class InstancesService {
       throw new ConflictException('实例没有关联到启动项！');
     }
 
-    // 使用 nohup 和 & 让服务器在后台运行，命令会立即返回
-    // 标准输出和错误都重定向到 /dev/null，实际日志可以通过 docker logs 查看
-    const command = `nohup ./srcds_run ${startupArgs} > /dev/null 2>&1 &`;
-
     console.log('[startServer] 准备启动服务器');
     console.log(`  启动参数: ${startupArgs}`);
+
+    // 先检查 srcds_run 文件是否存在
+    try {
+      const checkFile = await this.dockerService.execCommand(
+        instance.dockerId,
+        'ls -lh ./srcds_run 2>&1',
+        { cwd: '/app/Steam/steamapps/common/GarrysModDS', detach: false }
+      );
+      console.log('[startServer] srcds_run 文件检查:');
+      console.log(checkFile.output);
+    } catch (e) {
+      console.log('[startServer] 检查文件失败:', e.message);
+    }
+
+    // 先用简单的命令测试（输出到日志文件，方便查看错误）
+    const command = `./srcds_run ${startupArgs} > /tmp/srcds.log 2>&1 &`;
     console.log(`  完整命令: ${command}`);
 
     const result = await this.dockerService.execCommand(instance.dockerId, command, {
       cwd: '/app/Steam/steamapps/common/GarrysModDS',
-      detach: false, // 现在命令会立即返回，不会卡住
+      detach: false,
     });
 
     console.log('[startServer] 服务器启动命令已执行');
     console.log(`  输出: ${result.output}`);
 
-    // 等待一小段时间后检查进程是否启动
-    await this.delay(2000);
+    // 等待一小段时间后检查启动日志
+    await this.delay(3000);
 
-    // 使用 pgrep 检查进程（比 ps 更可靠）
+    // 读取启动日志
+    try {
+      const logResult = await this.dockerService.execCommand(
+        instance.dockerId,
+        'cat /tmp/srcds.log 2>/dev/null || echo "无启动日志"',
+        { detach: false }
+      );
+      console.log('[startServer] ===== 启动日志 =====');
+      console.log(logResult.output || '无输出');
+      console.log('[startServer] ===== 日志结束 =====');
+    } catch (e) {
+      console.log('[startServer] 无法读取启动日志:', e.message);
+    }
+
+    // 检查进程是否存在（使用 pidof 或 查找进程文件）
     try {
       const checkResult = await this.dockerService.execCommand(
         instance.dockerId,
-        'pgrep -f "srcds" || echo "未找到服务器进程"',
+        'ls -la /proc/*/comm 2>/dev/null | head -20 || echo "无法列出进程"',
         { detach: false }
       );
-      console.log('[startServer] 进程检查结果:');
+      console.log('[startServer] 进程列表:');
       console.log(checkResult.output || '无输出');
-
-      // 如果找不到进程，检查启动错误日志
-      if (checkResult.output?.includes('未找到')) {
-        console.log('[startServer] 警告：服务器进程未启动，检查 nohup.out 日志');
-        try {
-          const logResult = await this.dockerService.execCommand(
-            instance.dockerId,
-            'tail -50 nohup.out 2>/dev/null || echo "无 nohup.out 日志"',
-            { cwd: '/app/Steam/steamapps/common/GarrysModDS', detach: false }
-          );
-          console.log('[startServer] nohup.out 日志:');
-          console.log(logResult.output);
-        } catch (e) {
-          console.log('[startServer] 无法读取启动日志');
-        }
-      }
     } catch (error) {
       console.log('[startServer] 进程检查失败:', error.message);
     }
