@@ -101,7 +101,7 @@ export class DockerService {
     try {
       const container = this.docker.getContainer(dockerId);
 
-      const logOptions: Docker.ContainerLogsOptions = {
+      const logOptions: Docker.ContainerLogsOptions & { follow: false } = {
         stdout: true,
         stderr: true,
         follow: false,
@@ -113,8 +113,7 @@ export class DockerService {
         logOptions.since = options.since;
       }
 
-      const logs = await container.logs(logOptions);
-      const buffer = Buffer.isBuffer(logs) ? logs : Buffer.from(logs);
+      const buffer = (await container.logs(logOptions)) as Buffer;
 
       const { text, cursor } = this.parseDockerLogs(buffer, options?.since);
       const sanitized = this.stripAnsiSequences(text);
