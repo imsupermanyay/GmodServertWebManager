@@ -59,48 +59,46 @@ export class InstancesService {
           echo "[INIT] 开始安装 32 位运行库..."
           echo "[INIT] =========================================="
 
-          # 清理可能残留的 apt 进程
+          # 清理可能残留的 apt 进程和锁文件
           pkill -9 apt-get 2>/dev/null || true
           pkill -9 apt 2>/dev/null || true
           rm -f /var/lib/apt/lists/lock /var/lib/dpkg/lock* 2>/dev/null || true
           sleep 1
 
-          # 使用国内镜像源加速（检测是否为 Debian）
-          if [ -f /etc/apt/sources.list ] && grep -q "debian" /etc/apt/sources.list; then
-            echo "[INIT] [1/3] 配置阿里云镜像源以加速下载..."
-            cp /etc/apt/sources.list /etc/apt/sources.list.bak 2>/dev/null || true
-            cat > /etc/apt/sources.list << "EOFMIRROR"
-deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware
-deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware
-deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non-free non-free-firmware
-EOFMIRROR
-            echo "[INIT] ✓ 镜像源配置完成"
+          # 自动检测 Debian 版本并配置国内镜像源
+          echo "[INIT] [1/3] 配置阿里云镜像源以加速下载..."
+          DEBIAN_VERSION=$(grep VERSION_CODENAME /etc/os-release 2>/dev/null | cut -d= -f2)
+          if [ -z "$DEBIAN_VERSION" ]; then
+            DEBIAN_VERSION="bookworm"
           fi
+          echo "[INIT]   检测到 Debian 版本: $DEBIAN_VERSION"
+
+          cp /etc/apt/sources.list /etc/apt/sources.list.bak 2>/dev/null || true
+          cat > /etc/apt/sources.list << EOFMIRROR
+deb http://mirrors.aliyun.com/debian/ $DEBIAN_VERSION main contrib non-free non-free-firmware
+deb http://mirrors.aliyun.com/debian/ $DEBIAN_VERSION-updates main contrib non-free non-free-firmware
+deb http://mirrors.aliyun.com/debian-security $DEBIAN_VERSION-security main contrib non-free non-free-firmware
+EOFMIRROR
+          echo "[INIT] ✓ 镜像源配置完成"
 
           echo "[INIT] [2/3] 正在更新软件包列表（预计 30-60 秒）..."
-          # 后台运行 apt-get，实时显示进度
-          apt-get update > /tmp/apt-update.log 2>&1 &
-          APT_PID=$!
-          # 实时显示进度（每秒检查一次）
-          while kill -0 $APT_PID 2>/dev/null; do
-            tail -20 /tmp/apt-update.log 2>/dev/null | grep -E "Get:|Fetched" | tail -5
-            sleep 2
+          apt-get update 2>&1 | while IFS= read -r line; do
+            case "$line" in
+              Get:*|Fetched*|Reading*)
+                echo "[INIT]   $line"
+                ;;
+            esac
           done
-          wait $APT_PID
           echo "[INIT] ✓ 软件包列表更新完成"
 
           echo "[INIT] [3/3] 正在安装 lib32gcc-s1, lib32stdc++6, libc6-i386（预计 2-5 分钟）..."
-          # 后台运行 apt-get install，实时显示进度
-          DEBIAN_FRONTEND=noninteractive apt-get install -y lib32gcc-s1 lib32stdc++6 libc6-i386 > /tmp/apt-install.log 2>&1 &
-          INSTALL_PID=$!
-          # 实时显示进度（每秒检查一次）
-          while kill -0 $INSTALL_PID 2>/dev/null; do
-            tail -20 /tmp/apt-install.log 2>/dev/null | grep -E "Unpacking|Setting up|Processing|Selecting" | tail -3 | while read line; do
-              echo "[INIT]   $line"
-            done
-            sleep 2
+          DEBIAN_FRONTEND=noninteractive apt-get install -y lib32gcc-s1 lib32stdc++6 libc6-i386 2>&1 | while IFS= read -r line; do
+            case "$line" in
+              *Unpacking*|*Setting\ up*|*Processing*|*Selecting*)
+                echo "[INIT]   $line"
+                ;;
+            esac
           done
-          wait $INSTALL_PID
           echo "[INIT] =========================================="
           echo "[INIT] ✓ 32 位运行库安装完成！"
           echo "[INIT] =========================================="
