@@ -292,6 +292,38 @@ export class InstancesService {
     console.log('[startServer] 服务器启动命令已执行');
     console.log(`  输出: ${result.output}`);
 
+    // 等待一小段时间后检查进程是否启动
+    await this.delay(2000);
+
+    // 使用 pgrep 检查进程（比 ps 更可靠）
+    try {
+      const checkResult = await this.dockerService.execCommand(
+        instance.dockerId,
+        'pgrep -f "srcds" || echo "未找到服务器进程"',
+        { detach: false }
+      );
+      console.log('[startServer] 进程检查结果:');
+      console.log(checkResult.output || '无输出');
+
+      // 如果找不到进程，检查启动错误日志
+      if (checkResult.output?.includes('未找到')) {
+        console.log('[startServer] 警告：服务器进程未启动，检查 nohup.out 日志');
+        try {
+          const logResult = await this.dockerService.execCommand(
+            instance.dockerId,
+            'tail -50 nohup.out 2>/dev/null || echo "无 nohup.out 日志"',
+            { cwd: '/app/Steam/steamapps/common/GarrysModDS', detach: false }
+          );
+          console.log('[startServer] nohup.out 日志:');
+          console.log(logResult.output);
+        } catch (e) {
+          console.log('[startServer] 无法读取启动日志');
+        }
+      }
+    } catch (error) {
+      console.log('[startServer] 进程检查失败:', error.message);
+    }
+
     return { message: '服务器启动命令已发送，请查看控制台输出面板查看启动日志' };
   }
 
