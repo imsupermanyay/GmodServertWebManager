@@ -272,6 +272,10 @@ export class InstancesService {
     await this.ensureContainerRunning(instance);
 
     const startupArgs = await this.getStartupArgs(instance);
+    if (startupArgs) {
+      throw new ConflictException('实例没有关联到 启动项 ！');
+    }
+
     const command = startupArgs ? './srcds_run ' + startupArgs : './srcds_run';
 
     await this.dockerService.execCommand(instance.dockerId, command, {
