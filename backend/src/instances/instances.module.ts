@@ -5,6 +5,7 @@ import { InstancesController } from './instances.controller';
 import { Instance } from './entities/instance.entity';
 import { DockerService } from './docker.service';
 import { AuthModule } from '../auth/auth.module';
+import { UsersModule } from '../users/users.module';
 import { CfgTemplate } from '../config-templates/entities/cfg-template.entity';
 import { StartupOption } from '../config-templates/entities/startup-option.entity';
 import { InstancesGateway } from './instances.gateway';
@@ -13,6 +14,7 @@ import { InstancesGateway } from './instances.gateway';
   imports: [
     TypeOrmModule.forFeature([Instance, CfgTemplate, StartupOption]),
     AuthModule,
+    UsersModule,
   ],
   controllers: [InstancesController],
   providers: [InstancesService, DockerService, InstancesGateway],
