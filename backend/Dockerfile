@@ -1,9 +1,9 @@
 # BASE IMAGE
-FROM debian:buster-slim
+FROM debian:bookworm-slim
 
 # 设置环境变量
-ENV STEAMCMD_DIR=/opt/steam/steamcmd
-ENV GMOD_DIR=/opt/steam
+ENV STEAMCMD_DIR=/app/steam/steamcmd
+ENV GMOD_DIR=/app/steam
 
 # 安装依赖项
 RUN dpkg --add-architecture i386 && \
@@ -30,12 +30,12 @@ RUN dpkg --add-architecture i386 && apt-get update && apt-get -y --no-install-re
 
 # 创建steam用户并准备安装目录
 RUN useradd -m -s /bin/bash steam && \
-    mkdir -p /opt/steam && \
-    chown -R steam:steam /opt/steam
+    mkdir -p /app/steam && \
+    chown -R steam:steam /app/steam
 
 # 切换到steam用户
 USER steam
-WORKDIR /opt/steam
+WORKDIR /app/steam
 
 # 下载并安装SteamCMD
 RUN mkdir -p ${STEAMCMD_DIR} && \
@@ -43,12 +43,20 @@ RUN mkdir -p ${STEAMCMD_DIR} && \
     wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz && \
     tar -xvzf steamcmd_linux.tar.gz && \
     rm steamcmd_linux.tar.gz
+RUN set -eux; \
+    cd ${STEAMCMD_DIR}; \
+    if [ ! -d "${GMOD_DIR}/garrysmod" ]; then \
+    echo "[INIT] GarrysMod directory not found, downloading (AppID 4020)..."; \
+    ./steamcmd.sh +force_install_dir ${GMOD_DIR} +login anonymous +app_update 4020 validate +quit; \
+    else \
+    echo "[INIT] GarrysMod directory already exists, skipping download."; \
+    fi
 
 
 
 # 复制启动脚本
-COPY --chown=steam:steam start_server.sh /opt/steam/start_server.sh
-RUN chmod +x /opt/steam/start_server.sh
+COPY --chown=steam:steam start_server.sh /app/steam/start_server.sh
+RUN chmod +x /app/steam/start_server.sh
 
 # 暴露GMOD服务器端口
 # 27015: 游戏端口
