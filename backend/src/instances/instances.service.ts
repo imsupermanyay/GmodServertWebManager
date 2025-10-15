@@ -75,7 +75,7 @@ export class InstancesService {
 
           cp /etc/apt/sources.list /etc/apt/sources.list.bak 2>/dev/null || true
           rm -f /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
-          cat > /etc/apt/sources.list <<'EOFMIRROR'
+          cat > /etc/apt/sources.list << EOFMIRROR
 deb http://mirrors.aliyun.com/debian/ $DEBIAN_VERSION main contrib non-free non-free-firmware
 deb http://mirrors.aliyun.com/debian/ $DEBIAN_VERSION-updates main contrib non-free non-free-firmware
 deb http://mirrors.aliyun.com/debian-security $DEBIAN_VERSION-security main contrib non-free non-free-firmware
@@ -458,6 +458,7 @@ EOFMIRROR
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
+
 
 
 

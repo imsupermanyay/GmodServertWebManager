@@ -1,4 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Readable } from 'stream';
 import Docker = require('dockerode');
 
 @Injectable()
@@ -125,6 +126,31 @@ export class DockerService {
       };
     } catch (error) {
       throw new InternalServerErrorException(`获取日志失败: ${error.message}`);
+    }
+  }
+
+  async streamContainerLogs(
+    dockerId: string,
+    options?: { since?: number; tail?: number },
+  ): Promise<Readable> {
+    try {
+      const container = this.docker.getContainer(dockerId);
+      const logOptions: Docker.ContainerLogsOptions & { follow: true } = {
+        stdout: true,
+        stderr: true,
+        follow: true,
+        timestamps: true,
+        tail: options?.tail ?? 200,
+      };
+
+      if (options?.since != null) {
+        logOptions.since = options.since;
+      }
+
+      const stream = await container.logs(logOptions);
+      return stream as unknown as Readable;
+    } catch (error) {
+      throw new InternalServerErrorException(`订阅容器日志失败: ${error.message}`);
     }
   }
 
@@ -462,6 +488,15 @@ export class DockerService {
 
     // eslint-disable-next-line no-control-regex
     return value.replace(/\x1b\[[0-9;]*m/g, '');
+  }
+
+  decodeLogChunk(chunk: Buffer): string {
+    if (!chunk || chunk.length === 0) {
+      return '';
+    }
+
+    const { text } = this.parseDockerLogs(chunk, undefined);
+    return this.stripAnsiSequences(text);
   }
 
   async writeFileToContainer(dockerId: string, filePath: string, content: string): Promise<void> {

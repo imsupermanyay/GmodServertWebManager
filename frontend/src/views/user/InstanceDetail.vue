@@ -357,8 +357,10 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import { io } from 'socket.io-client'
 import { instancesAPI, cfgTemplatesAPI, startupOptionsAPI } from '../../api'
 import { useNotificationStore } from '../../stores/notifications'
+import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps({
   id: {
@@ -369,6 +371,7 @@ const props = defineProps({
 
 const router = useRouter()
 const notifications = useNotificationStore()
+const authStore = useAuthStore()
 
 const instanceData = ref(null)
 const detailLogs = ref('')
@@ -384,10 +387,15 @@ const showStartupModal = ref(false)
 const startupOptionContent = ref('')
 const containerActionLoading = ref(false)
 const serverActionLoading = ref(false)
+const useRealtimeLogs = ref(!!authStore.getAuthToken())
+const socketConnected = ref(false)
 
 const consoleRef = ref(null)
 let refreshTimer = null
 let refreshInFlight = false
+let logsSocket = null
+let socketReconnectTimer = null
+let hasActiveSubscription = false
 
 const containerInfo = computed(() => instanceData.value?.containerInfo || null)
 const detailStats = computed(() => containerInfo.value?.stats || null)
@@ -396,6 +404,7 @@ const formattedUptime = computed(() =>
   formatDuration(containerInfo.value?.uptimeSeconds || 0)
 )
 const isContainerRunning = computed(() => instanceData.value?.status === 'RUNNING')
+const numericInstanceId = computed(() => Number(props.id))
 
 
 // 格式化端口显示
@@ -441,6 +450,126 @@ const scrollConsoleToBottom = () => {
   })
 }
 
+const getWsEndpoint = () => {
+  const base = import.meta.env.VITE_API_BASE_URL
+    ? import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')
+    : ''
+  return base ? `${base}/ws/instances` : '/ws/instances'
+}
+
+const scheduleSocketReconnect = () => {
+  if (!useRealtimeLogs.value) return
+  if (socketReconnectTimer) return
+  socketReconnectTimer = setTimeout(() => {
+    socketReconnectTimer = null
+    if (!socketConnected.value) {
+      connectLogsSocket()
+    }
+  }, 5000)
+}
+
+const disconnectLogsSocket = () => {
+  if (socketReconnectTimer) {
+    clearTimeout(socketReconnectTimer)
+    socketReconnectTimer = null
+  }
+  if (logsSocket) {
+    if (hasActiveSubscription && !Number.isNaN(numericInstanceId.value)) {
+      logsSocket.emit('unsubscribeLogs', { instanceId: numericInstanceId.value })
+    }
+    logsSocket.off()
+    logsSocket.disconnect()
+    logsSocket = null
+  }
+  hasActiveSubscription = false
+  socketConnected.value = false
+}
+
+const subscribeLogs = (reset = false) => {
+  if (!logsSocket || !logsSocket.connected) return
+  if (!hasActiveSubscription || reset) {
+    detailLogs.value = ''
+    logCursor.value = null
+  }
+  hasActiveSubscription = true
+  logsSocket.emit('subscribeLogs', { instanceId: numericInstanceId.value })
+}
+
+const connectLogsSocket = () => {
+  if (!useRealtimeLogs.value) return
+  const token = authStore.getAuthToken()
+  if (!token) return
+
+  disconnectLogsSocket()
+
+  logsSocket = io(getWsEndpoint(), {
+    transports: ['websocket'],
+    withCredentials: true,
+    auth: { token }
+  })
+
+  logsSocket.on('connect', () => {
+    socketConnected.value = true
+    hasActiveSubscription = false
+    subscribeLogs(true)
+  })
+
+  logsSocket.on('disconnect', () => {
+    socketConnected.value = false
+    hasActiveSubscription = false
+    scheduleSocketReconnect()
+  })
+
+  logsSocket.on('connect_error', () => {
+    socketConnected.value = false
+    hasActiveSubscription = false
+    scheduleSocketReconnect()
+  })
+
+  logsSocket.on('logs', (payload) => {
+    if (Number(payload?.instanceId) !== numericInstanceId.value) return
+    if (payload?.logs) {
+      appendLogs(payload.logs)
+      scrollConsoleToBottom()
+    }
+  })
+
+  logsSocket.on('logs:error', (message) => {
+    if (message) {
+      notifications.error(message, { title: '日志流错误' })
+    }
+  })
+
+  logsSocket.on('logs:subscribed', async () => {
+    socketConnected.value = true
+    try {
+      const response = await instancesAPI.getLogs(props.id)
+      applyLogsPayload(response.data, true)
+      scrollConsoleToBottom()
+    } catch (error) {
+      notifications.error(
+        error.response?.data?.message || '加载初始日志失败',
+        { title: '日志流' }
+      )
+    }
+  })
+
+  logsSocket.on('commandResult', (payload) => {
+    if (Number(payload?.instanceId) !== numericInstanceId.value) return
+    if (payload?.error) {
+      notifications.error(payload.error, { title: '命令执行失败' })
+      appendLogs(`[Command Failed] ${payload.error}`)
+      scrollConsoleToBottom()
+    } else if (payload?.message) {
+      notifications.success(payload.message)
+    }
+    if (payload?.output) {
+      appendLogs(payload.output)
+      scrollConsoleToBottom()
+    }
+  })
+}
+
 const appendLogs = (text) => {
   if (!text) return
 
@@ -481,17 +610,24 @@ const loadDetail = async (reset = false) => {
     logCursor.value = null
   }
 
-  const useCursor = !reset && logCursor.value !== null
+  const shouldFetchLogs = !useRealtimeLogs.value || !socketConnected.value
+  const useCursor = shouldFetchLogs && !reset && logCursor.value !== null
   const logParams = useCursor ? { since: logCursor.value } : undefined
 
   try {
-    const [infoResponse, logsResponse] = await Promise.all([
-      instancesAPI.getInfo(props.id),
-      instancesAPI.getLogs(props.id, logParams)
-    ])
-    instanceData.value = infoResponse.data
-    applyLogsPayload(logsResponse.data, reset || !useCursor)
-    scrollConsoleToBottom()
+    const requests = [instancesAPI.getInfo(props.id)]
+    if (shouldFetchLogs) {
+      requests.push(instancesAPI.getLogs(props.id, logParams))
+    }
+
+    const responses = await Promise.all(requests)
+    instanceData.value = responses[0].data
+
+    if (shouldFetchLogs) {
+      const logsResponse = responses[1]
+      applyLogsPayload(logsResponse.data, reset || !useCursor)
+      scrollConsoleToBottom()
+    }
   } catch (error) {
     notifications.error(
       error.response?.data?.message || '获取实例信息失败',
@@ -507,9 +643,17 @@ const loadDetail = async (reset = false) => {
 
 const refreshAll = () => {
   loadDetail(true)
+  if (useRealtimeLogs.value && socketConnected.value) {
+    subscribeLogs(true)
+  }
 }
 
 const refreshLogs = async (reset = false) => {
+  if (useRealtimeLogs.value && socketConnected.value) {
+    subscribeLogs(reset)
+    return
+  }
+
   if (reset) {
     logCursor.value = null
   }
@@ -543,6 +687,31 @@ const stopAutoRefresh = () => {
     refreshTimer = null
   }
 }
+
+watch(numericInstanceId, (newId, oldId) => {
+  if (Number.isNaN(newId)) {
+    return
+  }
+
+  logCursor.value = null
+  detailLogs.value = ''
+
+  if (logsSocket && logsSocket.connected) {
+    if (!Number.isNaN(oldId) && hasActiveSubscription) {
+      logsSocket.emit('unsubscribeLogs', { instanceId: oldId })
+    }
+    hasActiveSubscription = false
+    subscribeLogs(true)
+  }
+})
+
+watch(useRealtimeLogs, (value) => {
+  if (value) {
+    connectLogsSocket()
+  } else {
+    disconnectLogsSocket()
+  }
+})
 
 watch(autoRefresh, (value) => {
   if (value) {
@@ -680,6 +849,19 @@ const restartServer = async () => {
 const sendCommand = async () => {
   const command = commandInput.value.trim()
   if (!command) return
+
+  if (useRealtimeLogs.value && logsSocket && socketConnected.value) {
+    const timestamp = new Date().toLocaleTimeString()
+    appendLogs(`[${timestamp}] > ${command}`)
+    scrollConsoleToBottom()
+
+    logsSocket.emit('execCommand', {
+      instanceId: numericInstanceId.value,
+      command
+    })
+    commandInput.value = ''
+    return
+  }
 
   try {
     const response = await instancesAPI.execCommand(props.id, { command })
@@ -833,12 +1015,16 @@ function formatDuration(totalSeconds) {
 }
 
 onMounted(() => {
+  if (useRealtimeLogs.value) {
+    connectLogsSocket()
+  }
   loadDetail()
   startAutoRefresh()
 })
 
 onBeforeUnmount(() => {
   stopAutoRefresh()
+  disconnectLogsSocket()
 })
 </script>
 
