@@ -84,20 +84,35 @@ EOFMIRROR
           pkill -9 apt 2>/dev/null || true
           rm -f /var/lib/apt/lists/lock /var/lib/dpkg/lock* /var/cache/apt/archives/lock 2>/dev/null || true
 
-          echo "[INIT] [1/2] 正在更新软件包列表（首次约 1-2 分钟）..."
+          echo "[INIT] [1/3] 正在更新软件包列表（首次约 1-2 分钟）..."
           dpkg --add-architecture i386 2>/dev/null || true
           apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 update
           echo "[INIT] ✓ 软件包列表更新完成"
 
-          echo "[INIT] [2/2] 安装 32 位运行库（预计 2-5 分钟）..."
+          echo "[INIT] [2/3] 安装 32 位运行库（预计 2-5 分钟）..."
           apt-get install -y --no-install-recommends lib32gcc-s1 lib32stdc++6 libc6-i386 libtinfo6:i386 libncurses6:i386
           apt-get clean
           rm -rf /var/lib/apt/lists/*
+
+          echo "[INIT] [3/3] 创建 ncurses 兼容性符号链接..."
+          ln -sf /usr/lib/i386-linux-gnu/libtinfo.so.6 /usr/lib/i386-linux-gnu/libtinfo.so.5
+          ln -sf /usr/lib/i386-linux-gnu/libncurses.so.6 /usr/lib/i386-linux-gnu/libncurses.so.5
+          echo "[INIT] ✓ 符号链接创建完成"
+
           echo "[INIT] =========================================="
           echo "[INIT] ✓ 32 位运行库安装完成"
           echo "[INIT] =========================================="
         else
           echo "[INIT] ✓ 系统已安装 32 位运行库，跳过安装"
+        fi
+
+        # 创建 gmod 用户（如果不存在）
+        if ! id gmod &>/dev/null; then
+          echo "[INIT] 创建 gmod 用户..."
+          useradd -m -s /bin/bash gmod
+          echo "[INIT] ✓ gmod 用户创建完成"
+        else
+          echo "[INIT] ✓ gmod 用户已存在，跳过创建"
         fi
 
         INSTALL_DIR="/app/Steam/garrysmod"
@@ -110,6 +125,11 @@ EOFMIRROR
         else
           echo "[INIT] ✓ GMOD 服务端目录已存在，跳过下载"
         fi
+
+        # 设置 gmod 用户对 Steam 目录的权限
+        echo "[INIT] 设置 gmod 用户权限..."
+        chown -R gmod:gmod /app/Steam /app/steamcmd.sh 2>/dev/null || true
+        echo "[INIT] ✓ 权限设置完成"
 
         echo "[INIT] ========== 初始化完成，容器进入守护状态 =========="
         echo "[INIT] 结束时间: $(date)"
@@ -371,10 +391,11 @@ EOFMIRROR
       // 忽略错误，继续执行
     }
 
-    // 使用 screen 会话运行服务器，并将输出重定向到容器主进程的 stdout
-    // 这样 Docker logs 可以捕获服务器输出，同时我们也可以通过 screen 发送命令
+    // 使用 screen 会话以 gmod 用户运行服务器，并将输出重定向到容器主进程的 stdout
+    // runuser 用于切换到 gmod 用户，避免 ROOT 警告
+    // stdbuf -o0 禁用输出缓冲，确保实时显示所有控制台消息
     // /proc/1/fd/1 是容器主进程的标准输出
-    const command = `screen -dmS gmod bash -c './srcds_run ${startupArgs} 2>&1 | tee /proc/1/fd/1'`;
+    const command = `runuser -u gmod -- bash -c 'cd /app/Steam && screen -dmS gmod bash -c "stdbuf -o0 ./srcds_run ${startupArgs} 2>&1 | stdbuf -o0 tee /proc/1/fd/1"'`;
 
     await this.dockerService.execCommand(instance.dockerId, command, {
       cwd: '/app/Steam/',
@@ -397,11 +418,12 @@ EOFMIRROR
 
     await this.ensureContainerRunning(instance);
 
+    // 由于服务器运行在 gmod 用户下，需要以 gmod 用户执行停止命令
     const stopCommand = [
-      'screen -S gmod -X quit 2>/dev/null || true',
-      'pkill -f srcds_linux >/dev/null 2>&1 || true',
-      'pkill -f srcds_run >/dev/null 2>&1 || true',
-      'pkill -f "tee /proc/1/fd/1" >/dev/null 2>&1 || true',
+      'runuser -u gmod -- screen -S gmod -X quit 2>/dev/null || true',
+      'pkill -u gmod -f srcds_linux >/dev/null 2>&1 || true',
+      'pkill -u gmod -f srcds_run >/dev/null 2>&1 || true',
+      'pkill -u gmod -f "tee /proc/1/fd/1" >/dev/null 2>&1 || true',
     ].join('; ');
 
     const result = await this.dockerService.execCommand(instance.dockerId, stopCommand, {
@@ -506,7 +528,8 @@ EOFMIRROR
 
     // 通过RCON发送命令到GMOD服务器
     // 使用 screen 发送命令到 srcds_run 进程
-    const screenCommand = `screen -S gmod -X stuff "${command.replace(/"/g, '\\"')}^M"`;
+    // 由于 screen 会话运行在 gmod 用户下，需要以 gmod 用户执行命令
+    const screenCommand = `runuser -u gmod -- screen -S gmod -X stuff "${command.replace(/"/g, '\\"')}^M"`;
 
     try {
       await this.dockerService.execCommand(instance.dockerId, screenCommand, {
