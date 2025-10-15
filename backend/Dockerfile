@@ -1,8 +1,7 @@
 # BASE IMAGE
-FROM debian:bookworm-slim
+FROM debian:buster-slim
 
 # 设置环境变量
-ENV DEBIAN_FRONTEND=noninteractive
 ENV STEAMCMD_DIR=/opt/steam/steamcmd
 ENV GMOD_DIR=/opt/steam
 
