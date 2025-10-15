@@ -1,11 +1,12 @@
-# Base image（使用阿里云镜像仓库，避免直接访问 Docker Hub）
+# 基础镜像：官方 bookworm-slim（建议在宿主机的 daemon.json 里配置好国内镜像源）
 FROM debian:bookworm-slim
 
 # 常用环境变量
 ENV DEBIAN_FRONTEND=noninteractive \
   STEAMCMD_DIR=/opt/steamcmd \
   STEAMAPP_DIR=/opt/steam \
-  STEAM_USER=steam
+  STEAM_USER=steam \
+  DEFAULT_STARTUP="-console -game garrysmod +map gm_construct +maxplayers 24 -ip 0.0.0.0 -port 27015"
 
 # 配置阿里云 apt 源并安装 GMod/SteamCMD 运行所需的最小依赖
 RUN rm -rf /etc/apt/sources.list.d/* && \
@@ -17,21 +18,9 @@ RUN rm -rf /etc/apt/sources.list.d/* && \
   dpkg --add-architecture i386 && \
   apt-get update && \
   apt-get install -y --no-install-recommends --no-install-suggests \
-  ca-certificates \
-  curl \
-  wget \
-  tar \
-  xz-utils \
-  gosu \
-  locales \
-  iproute2 \
-  lib32gcc-s1 \
-  lib32stdc++6 \
-  libc6:i386 \
-  libcurl4:i386 \
-  libncurses5:i386 \
-  libtinfo5:i386 \
-  libnss3:i386 && \
+  ca-certificates curl wget tar xz-utils gosu iproute2 locales \
+  lib32gcc-s1 lib32stdc++6 libc6:i386 libcurl4:i386 libncurses5:i386 \
+  libtinfo5:i386 libnss3:i386 && \
   rm -rf /var/lib/apt/lists/*
 
 # 创建 steam 用户并准备目录
@@ -50,6 +39,7 @@ RUN cd "${STEAMCMD_DIR}" && \
   rm steamcmd_linux.tar.gz && \
   "${STEAMCMD_DIR}/steamcmd.sh" +force_install_dir "${STEAMAPP_DIR}" +login anonymous +app_update 4020 validate +quit
 
+# 复制启动脚本
 
 
 # 暴露 GMOD 常用端口
