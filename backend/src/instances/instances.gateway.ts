@@ -249,7 +249,9 @@ export class InstancesGateway implements OnGatewayDisconnect {
       }
 
       subscriptions.delete(instanceId);
-      const client = this.server.sockets.sockets.get(clientId);
+
+      // 安全访问 sockets，避免在服务器未初始化时崩溃
+      const client = this.server?.sockets?.sockets?.get(clientId);
       if (client) {
         client.leave(this.roomName(instanceId));
       }
