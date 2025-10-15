@@ -50,13 +50,10 @@ RUN cd "${STEAMCMD_DIR}" && \
   rm steamcmd_linux.tar.gz && \
   "${STEAMCMD_DIR}/steamcmd.sh" +force_install_dir "${STEAMAPP_DIR}" +login anonymous +app_update 4020 validate +quit
 
-# 复制启动脚本
-COPY --chown=${STEAM_USER}:${STEAM_USER} start_server.sh ${STEAMAPP_DIR}/start_server.sh
-RUN chmod +x ${STEAMAPP_DIR}/start_server.sh
+
 
 # 暴露 GMOD 常用端口
 EXPOSE 27015/tcp 27015/udp 27005/udp
 
 # 默认工作目录与启动脚本
 WORKDIR ${STEAMAPP_DIR}
-ENTRYPOINT ["./start_server.sh"]
