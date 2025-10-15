@@ -157,38 +157,95 @@ export class InstancesGateway implements OnGatewayDisconnect {
       return;
     }
 
-    const stream = await this.dockerService.streamContainerLogs(instance.dockerId, {
-      tail: 200,
-    });
+    await this.createStream(instance);
+  }
 
-    const clients = new Set<string>();
-    const record: InstanceStreamRecord = { stream, clients };
-    this.instanceStreams.set(instance.id, record);
+  private async createStream(instance: Instance): Promise<void> {
+    try {
+      const stream = await this.dockerService.streamContainerLogs(instance.dockerId, {
+        tail: 200,
+      });
 
-    stream.on('data', (chunk: Buffer) => {
-      const text = this.dockerService.decodeLogChunk(chunk);
-      if (!text) return;
+      const clients = new Set<string>();
+      const record: InstanceStreamRecord = { stream, clients };
+      this.instanceStreams.set(instance.id, record);
 
-      this.server
-        .to(this.roomName(instance.id))
-        .emit('logs', { instanceId: instance.id, logs: text });
-    });
+      stream.on('data', (chunk: Buffer) => {
+        const text = this.dockerService.decodeLogChunk(chunk);
+        if (!text) return;
 
-    stream.on('error', (err) => {
-      this.logger.error(`Log stream error (instance=${instance.id}): ${err.message}`);
-      this.server
-        .to(this.roomName(instance.id))
-        .emit('logs:error', `Log stream error: ${err.message}`);
-      this.stopStream(instance.id);
-    });
+        this.server
+          .to(this.roomName(instance.id))
+          .emit('logs', { instanceId: instance.id, logs: text });
+      });
 
-    stream.on('end', () => {
-      this.logger.warn(`Log stream ended (instance=${instance.id})`);
-      this.server
-        .to(this.roomName(instance.id))
-        .emit('logs:error', 'Log stream ended');
-      this.stopStream(instance.id);
-    });
+      stream.on('error', (err) => {
+        this.logger.error(`Log stream error (instance=${instance.id}): ${err.message}`);
+        this.handleStreamDisconnect(instance.id, `日志流错误: ${err.message}`);
+      });
+
+      stream.on('end', () => {
+        this.logger.warn(`Log stream ended (instance=${instance.id})`);
+        this.handleStreamDisconnect(instance.id, '日志流已断开');
+      });
+
+      this.logger.log(`Log stream created for instance ${instance.id}`);
+    } catch (error) {
+      this.logger.error(`Failed to create log stream for instance ${instance.id}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  private async handleStreamDisconnect(instanceId: number, reason: string): Promise<void> {
+    // 清理旧流
+    this.stopStream(instanceId);
+
+    // 检查是否还有客户端订阅
+    const hasSubscribers = Array.from(this.clientSubscriptions.values()).some(
+      (subs) => subs.has(instanceId)
+    );
+
+    if (!hasSubscribers) {
+      this.logger.log(`No subscribers for instance ${instanceId}, not reconnecting`);
+      return;
+    }
+
+    // 通知客户端断开
+    this.server
+      .to(this.roomName(instanceId))
+      .emit('logs:disconnected', { instanceId, reason });
+
+    // 3秒后尝试重新连接
+    setTimeout(async () => {
+      try {
+        const instance = await this.instancesService.findOne(instanceId);
+        if (!instance?.dockerId) {
+          this.logger.warn(`Instance ${instanceId} no longer exists, not reconnecting`);
+          return;
+        }
+
+        // 检查容器状态
+        const status = await this.dockerService.getContainerStatus(instance.dockerId);
+        if (status !== 'running') {
+          this.logger.warn(`Container for instance ${instanceId} is not running (${status}), not reconnecting`);
+          this.server
+            .to(this.roomName(instanceId))
+            .emit('logs:error', `容器未运行 (${status})`);
+          return;
+        }
+
+        this.logger.log(`Attempting to reconnect log stream for instance ${instanceId}`);
+        await this.createStream(instance);
+        this.server
+          .to(this.roomName(instanceId))
+          .emit('logs:reconnected', { instanceId });
+      } catch (error) {
+        this.logger.error(`Failed to reconnect log stream for instance ${instanceId}: ${error.message}`);
+        this.server
+          .to(this.roomName(instanceId))
+          .emit('logs:error', `重连失败: ${error.message}`);
+      }
+    }, 3000);
   }
 
   private removeClientSubscription(client: Socket, instanceId: number): void {

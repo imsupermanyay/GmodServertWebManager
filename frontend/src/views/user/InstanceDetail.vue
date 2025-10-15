@@ -549,6 +549,17 @@ const connectLogsSocket = () => {
     }
   })
 
+  logsSocket.on('logs:disconnected', (payload) => {
+    if (Number(payload?.instanceId) !== numericInstanceId.value) return
+    const reason = payload?.reason || '未知原因'
+    notifications.warning(`日志流已断开: ${reason}，将在 3 秒后自动重连...`, { title: '日志流断开' })
+  })
+
+  logsSocket.on('logs:reconnected', (payload) => {
+    if (Number(payload?.instanceId) !== numericInstanceId.value) return
+    notifications.success('日志流已重新连接', { title: '重连成功' })
+  })
+
   logsSocket.on('logs:subscribed', async () => {
     socketConnected.value = true
     try {
