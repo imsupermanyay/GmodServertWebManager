@@ -328,7 +328,7 @@ EOFMIRROR
     const command = `./srcds_run ${startupArgs} > /tmp/srcds.log 2>&1 &`;
 
     await this.dockerService.execCommand(instance.dockerId, command, {
-      cwd: '/app/Steam/steamapps/common/GarrysModDS',
+      cwd: '/app/Steam/',
       detach: false,
     });
 
@@ -355,7 +355,7 @@ EOFMIRROR
     ].join('; ');
 
     const result = await this.dockerService.execCommand(instance.dockerId, stopCommand, {
-      cwd: '/app/Steam/steamapps/common/GarrysModDS',
+      cwd: '/app/Steam',
     });
 
     const message = result.output?.trim() || '服务器停止命令已执行';
