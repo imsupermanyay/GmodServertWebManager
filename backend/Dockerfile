@@ -1,6 +1,5 @@
 # BASE IMAGE
-FROM registry.cn-hangzhou.aliyuncs.com/library/debian:bookworm-slim
-
+FROM registry.cn-hangzhou.aliyuncs.com/library/debian:buster-slim
 
 # 环境变量
 ENV STEAMCMD_DIR=/app/steam/steamcmd
