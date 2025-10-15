@@ -141,19 +141,19 @@
             <input
               v-model="commandInput"
               type="text"
-              placeholder="输入命令并按 Enter 发送..."
-              :disabled="!instanceData || instanceData.status !== 'RUNNING'"
+              placeholder="输入RCON命令并按 Enter 发送到服务器..."
+              :disabled="!isServerRunning"
               class="flex-1 px-3 py-2 text-sm bg-slate-950 border border-white/10 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-400/50 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <button
               type="submit"
-              :disabled="!instanceData || instanceData.status !== 'RUNNING' || !commandInput.trim()"
+              :disabled="!isServerRunning || !commandInput.trim()"
               class="px-4 py-2 text-sm font-medium rounded-lg border border-blue-400/40 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20 hover:border-blue-300/70 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
               发送
             </button>
           </form>
-          <p class="text-[11px] text-slate-500 mt-2">提示：仅当实例运行时可发送命令</p>
+          <p class="text-[11px] text-slate-500 mt-2">提示：仅当GMOD服务器运行时可发送命令</p>
         </div>
       </section>
 
@@ -407,6 +407,7 @@ const formattedUptime = computed(() =>
   formatDuration(containerInfo.value?.uptimeSeconds || 0)
 )
 const isContainerRunning = computed(() => instanceData.value?.status === 'RUNNING')
+const isServerRunning = computed(() => instanceData.value?.isServerRunning === true)
 const numericInstanceId = computed(() => Number(props.id))
 
 

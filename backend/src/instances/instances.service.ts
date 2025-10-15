@@ -324,8 +324,18 @@ EOFMIRROR
       throw new ConflictException('实例没有关联到启动项！');
     }
 
-    // 使用 screen 或后台方式运行服务器
-    const command = `./srcds_run ${startupArgs} > /tmp/srcds.log 2>&1 &`;
+    // 检查 screen 是否可用，如果没有则安装
+    try {
+      await this.dockerService.execCommand(instance.dockerId, 'which screen > /dev/null || apt-get update && apt-get install -y screen', {
+        cwd: '/app/Steam/',
+        detach: false,
+      });
+    } catch (error) {
+      // 忽略错误，继续执行
+    }
+
+    // 使用 screen 会话运行服务器，这样可以通过 screen 发送命令
+    const command = `screen -dmS gmod bash -c './srcds_run ${startupArgs}'`;
 
     await this.dockerService.execCommand(instance.dockerId, command, {
       cwd: '/app/Steam/',
@@ -404,9 +414,26 @@ EOFMIRROR
 
     const containerInfo = await this.dockerService.getContainerInfo(instance.dockerId);
 
+    // 检查 GMOD 服务器进程是否在运行
+    let isServerRunning = false;
+    if (instance.status === InstanceStatus.RUNNING) {
+      try {
+        const result = await this.dockerService.execCommand(
+          instance.dockerId,
+          'pgrep -f "srcds_run|srcds_linux" > /dev/null && echo "running" || echo "stopped"',
+          { detach: false }
+        );
+        isServerRunning = result.output?.trim().includes('running');
+      } catch (error) {
+        // 如果执行失败，认为服务器未运行
+        isServerRunning = false;
+      }
+    }
+
     return {
       ...instance,
       containerInfo,
+      isServerRunning,
     };
   }
 
@@ -417,12 +444,40 @@ EOFMIRROR
       throw new ConflictException('实例没有关联的 Docker 容器');
     }
 
-    // 检查实例是否在运行
+    // 检查容器是否在运行
     if (instance.status !== InstanceStatus.RUNNING) {
-      throw new ConflictException('实例未运行，无法执行命令');
+      throw new ConflictException('容器未运行，无法执行命令');
     }
 
-    return this.dockerService.execCommand(instance.dockerId, command);
+    // 检查服务器进程是否在运行
+    try {
+      const result = await this.dockerService.execCommand(
+        instance.dockerId,
+        'pgrep -f "srcds_run|srcds_linux" > /dev/null && echo "running" || echo "stopped"',
+        { detach: false }
+      );
+      const isServerRunning = result.output?.trim().includes('running');
+      if (!isServerRunning) {
+        throw new ConflictException('GMOD服务器未运行，无法发送命令');
+      }
+    } catch (error) {
+      throw new ConflictException('无法检测服务器状态');
+    }
+
+    // 通过RCON发送命令到GMOD服务器
+    // 使用 screen 发送命令到 srcds_run 进程
+    const screenCommand = `screen -S gmod -X stuff "${command.replace(/"/g, '\\"')}^M"`;
+
+    try {
+      await this.dockerService.execCommand(instance.dockerId, screenCommand, {
+        cwd: '/app/Steam',
+        detach: false,
+      });
+
+      return { output: `RCON命令已发送: ${command}` };
+    } catch (error) {
+      throw new ConflictException(`发送RCON命令失败: ${error.message}`);
+    }
   }
   private async ensureContainerRunning(instance: Instance): Promise<void> {
     const status = await this.dockerService.getContainerStatus(instance.dockerId!);
