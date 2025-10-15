@@ -6,39 +6,40 @@ ENV STEAMCMD_DIR=/app/steam/steamcmd
 ENV GMOD_DIR=/app/steam
 
 # 使用阿里云镜像并安装依赖
-RUN printf 'deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware\n' \
-  'deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware\n' \
-  'deb http://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware\n' \
-  'deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non-free non-free-firmware\n' \
-  > /etc/apt/sources.list && \
-  dpkg --add-architecture i386 && \
-  apt-get update && \
-  apt-get install -y --no-install-recommends --no-install-suggests \
-  lib32gcc-s1 \
-  lib32stdc++6 \
-  lib32z1 \
-  libncurses5:i386 \
-  libbz2-1.0:i386 \
-  libtinfo5:i386 \
-  libcurl4-gnutls-dev:i386 \
-  libcurl3-gnutls:i386 \
-  wget \
-  curl \
-  ca-certificates \
-  tar \
-  gcc \
-  g++ \
-  lib32gcc1 \
-  libgcc1 \
-  libssl1.1 \
-  libcurl4:i386 \
-  libtinfo5 \
-  gdb \
-  libsdl1.2debian \
-  libfontconfig \
-  net-tools && \
-  apt-get clean && \
-  rm -rf /var/lib/apt/lists/*
+RUN rm -rf /etc/apt/sources.list.d/* && \
+    printf 'deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware\n' \
+           'deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware\n' \
+           'deb http://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware\n' \
+           'deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non-free non-free-firmware\n' \
+           > /etc/apt/sources.list && \
+    dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends --no-install-suggests \
+      lib32gcc-s1 \
+      lib32stdc++6 \
+      lib32z1 \
+      libncurses5:i386 \
+      libbz2-1.0:i386 \
+      libtinfo5:i386 \
+      libcurl4-gnutls-dev:i386 \
+      libcurl3-gnutls:i386 \
+      wget \
+      curl \
+      ca-certificates \
+      tar \
+      gcc \
+      g++ \
+      lib32gcc1 \
+      libgcc1 \
+      libssl1.1 \
+      libcurl4:i386 \
+      libtinfo5 \
+      gdb \
+      libsdl1.2debian \
+      libfontconfig \
+      net-tools && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # 创建 steam 用户并准备目录
 RUN useradd -m -s /bin/bash steam && \
