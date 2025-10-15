@@ -49,7 +49,7 @@ export class InstancesService {
     // 设置 Docker 启动命令（默认下载 GMOD 4020）
     // 这个命令会在容器启动时执行，用于初始化环境
     const defaultDockerCmd = `
-      bash -lc '
+      bash -c '
         set -euo pipefail
         echo "[INIT] ========== 容器初始化开始 =========="
         echo "[INIT] 容器启动时间: $(date)"
@@ -57,6 +57,7 @@ export class InstancesService {
         export DEBIAN_FRONTEND=noninteractive
         export APT_LISTCHANGES_FRONTEND=none
 
+        # 检测系统是否已安装 32 位运行库
         if [ ! -f /usr/lib/i386-linux-gnu/libstdc++.so.6 ]; then
           echo "[INIT] =========================================="
           echo "[INIT] 开始安装 32 位运行库..."
@@ -94,10 +95,10 @@ EOFMIRROR
           echo "[INIT] ✓ 32 位运行库安装完成"
           echo "[INIT] =========================================="
         else
-          echo "[INIT] ✓ 32 位运行库已存在，跳过安装"
+          echo "[INIT] ✓ 系统已安装 32 位运行库，跳过安装"
         fi
 
-        INSTALL_DIR="/app/Steam/steamapps/common/GarrysModDS"
+        INSTALL_DIR="/app/Steam/garrysmod"
         if [ ! -d "$INSTALL_DIR" ]; then
           echo "[INIT] 开始下载 GMOD 服务端（AppID 4020），首轮下载可能需要 5-15 分钟..."
           mkdir -p /app/Steam

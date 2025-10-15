@@ -124,7 +124,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // 设置全局路由前缀
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', { exclude: ['socket.io', 'socket.io/(.*)'] });
 
   // 启用全局验证管道
   app.useGlobalPipes(new ValidationPipe({
@@ -182,3 +182,4 @@ async function bootstrap() {
 }
 
 bootstrap();
+

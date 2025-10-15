@@ -120,12 +120,13 @@
               <input
                 type="checkbox"
                 v-model="autoRefresh"
-                class="rounded border-slate-600 bg-slate-800 text-blue-400 focus:ring-blue-500"
+                :disabled="useRealtimeLogs"
+                class="rounded border-slate-600 bg-slate-800 text-blue-400 focus:ring-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"
               />
               自动刷新（5 秒）
             </label>
             <button class="text-blue-300 hover:text-blue-200 transition" @click="refreshLogs">
-              立即刷新
+              立即刷新  
             </button>
           </div>
         </div>
@@ -373,10 +374,12 @@ const router = useRouter()
 const notifications = useNotificationStore()
 const authStore = useAuthStore()
 
+const hasRealtimeToken = !!authStore.getAuthToken()
+
 const instanceData = ref(null)
 const detailLogs = ref('')
 const logCursor = ref(null)
-const autoRefresh = ref(true)
+const autoRefresh = ref(!hasRealtimeToken)
 const isLoading = ref(false)
 const commandInput = ref('')
 const showCfgModal = ref(false)
@@ -387,7 +390,7 @@ const showStartupModal = ref(false)
 const startupOptionContent = ref('')
 const containerActionLoading = ref(false)
 const serverActionLoading = ref(false)
-const useRealtimeLogs = ref(!!authStore.getAuthToken())
+const useRealtimeLogs = ref(hasRealtimeToken)
 const socketConnected = ref(false)
 
 const consoleRef = ref(null)
@@ -451,10 +454,17 @@ const scrollConsoleToBottom = () => {
 }
 
 const getWsEndpoint = () => {
-  const base = import.meta.env.VITE_API_BASE_URL
-    ? import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')
-    : ''
-  return base ? `${base}/ws/instances` : '/ws/instances'
+  const raw = import.meta.env.VITE_API_BASE_URL || ''
+  if (!raw) {
+    return '/ws/instances'
+  }
+
+  const normalized = raw
+    .replace(/\/$/, '')
+    .replace(/\/api$/i, '')
+    .replace(/\/api\/$/i, '')
+
+  return `${normalized}/ws/instances`
 }
 
 const scheduleSocketReconnect = () => {
@@ -503,7 +513,6 @@ const connectLogsSocket = () => {
   disconnectLogsSocket()
 
   logsSocket = io(getWsEndpoint(), {
-    transports: ['websocket'],
     withCredentials: true,
     auth: { token }
   })
@@ -707,9 +716,12 @@ watch(numericInstanceId, (newId, oldId) => {
 
 watch(useRealtimeLogs, (value) => {
   if (value) {
+    autoRefresh.value = false
+    stopAutoRefresh()
     connectLogsSocket()
   } else {
     disconnectLogsSocket()
+    autoRefresh.value = true
   }
 })
 
@@ -1019,7 +1031,9 @@ onMounted(() => {
     connectLogsSocket()
   }
   loadDetail()
-  startAutoRefresh()
+  if (!useRealtimeLogs.value && autoRefresh.value) {
+    startAutoRefresh()
+  }
 })
 
 onBeforeUnmount(() => {
