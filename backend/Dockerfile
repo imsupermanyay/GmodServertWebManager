@@ -1,6 +1,5 @@
 # BASE IMAGE
-FROM registry.mycompany.local/base/debian-bookworm:latest
-
+FROM debian:bookworm-slim
 
 # 环境变量
 ENV STEAMCMD_DIR=/app/steam/steamcmd
