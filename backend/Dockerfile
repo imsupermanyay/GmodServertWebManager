@@ -43,6 +43,7 @@ RUN mkdir -p ${STEAMCMD_DIR} && \
     wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz && \
     tar -xvzf steamcmd_linux.tar.gz && \
     rm steamcmd_linux.tar.gz
+
 RUN set -eux; \
     cd ${STEAMCMD_DIR}; \
     if [ ! -d "${GMOD_DIR}/garrysmod" ]; then \
@@ -53,10 +54,6 @@ RUN set -eux; \
     fi
 
 
-
-# 复制启动脚本
-COPY --chown=steam:steam start_server.sh /app/steam/start_server.sh
-RUN chmod +x /app/steam/start_server.sh
 
 # 暴露GMOD服务器端口
 # 27015: 游戏端口
