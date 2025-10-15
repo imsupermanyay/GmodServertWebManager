@@ -118,10 +118,11 @@ export class DockerService {
       const buffer = (await container.logs(logOptions)) as Buffer;
 
       const { text, cursor } = this.parseDockerLogs(buffer, options?.since);
-      const sanitized = this.stripAnsiSequences(text);
+      const stripped = this.stripAnsiSequences(text);
+      const formatted = this.formatTimestamps(stripped);
 
       return {
-        logs: sanitized || (options?.since != null ? '' : '暂无日志输出。'),
+        logs: formatted || (options?.since != null ? '' : '暂无日志输出。'),
         cursor,
       };
     } catch (error) {
@@ -490,13 +491,27 @@ export class DockerService {
     return value.replace(/\x1b\[[0-9;]*m/g, '');
   }
 
+  private formatTimestamps(value: string): string {
+    if (!value) {
+      return '';
+    }
+
+    // 匹配 Docker 时间戳格式: 2025-10-15T07:29:43.954117417Z
+    // 替换为简短格式: [07:29:43]
+    return value.replace(
+      /(\d{4}-\d{2}-\d{2}T)(\d{2}:\d{2}:\d{2})\.\d+Z\s/g,
+      '[$2] '
+    );
+  }
+
   decodeLogChunk(chunk: Buffer): string {
     if (!chunk || chunk.length === 0) {
       return '';
     }
 
     const { text } = this.parseDockerLogs(chunk, undefined);
-    return this.stripAnsiSequences(text);
+    const stripped = this.stripAnsiSequences(text);
+    return this.formatTimestamps(stripped);
   }
 
   async writeFileToContainer(dockerId: string, filePath: string, content: string): Promise<void> {

@@ -90,7 +90,7 @@ EOFMIRROR
           echo "[INIT] ✓ 软件包列表更新完成"
 
           echo "[INIT] [2/2] 安装 32 位运行库（预计 2-5 分钟）..."
-          apt-get install -y --no-install-recommends lib32gcc-s1 lib32stdc++6 libc6-i386
+          apt-get install -y --no-install-recommends lib32gcc-s1 lib32stdc++6 libc6-i386 libtinfo6:i386 libncurses6:i386
           apt-get clean
           rm -rf /var/lib/apt/lists/*
           echo "[INIT] =========================================="
@@ -324,6 +324,41 @@ EOFMIRROR
     const startupArgs = await this.getStartupArgs(instance);
     if (!startupArgs) {
       throw new ConflictException('实例没有关联到启动项！');
+    }
+
+    // 全局单服务器限制：检查是否已有其他服务器在运行
+    const allInstances = await this.instancesRepository.find({
+      where: { status: InstanceStatus.RUNNING },
+    });
+
+    for (const otherInstance of allInstances) {
+      if (otherInstance.id === instance.id) {
+        continue; // 跳过当前实例
+      }
+
+      if (!otherInstance.dockerId) {
+        continue;
+      }
+
+      // 检查该实例的服务器是否在运行
+      try {
+        const result = await this.dockerService.execCommand(
+          otherInstance.dockerId,
+          'pgrep -f "srcds_run|srcds_linux" > /dev/null && echo "running" || echo "stopped"',
+          { detach: false }
+        );
+        const isRunning = result.output?.trim().includes('running');
+        if (isRunning) {
+          throw new ConflictException(`无法启动服务器：实例 "${otherInstance.name}" 的服务器正在运行。系统同一时间只允许运行一个GMOD服务器。`);
+        }
+      } catch (error) {
+        // 如果是我们抛出的 ConflictException，继续抛出
+        if (error instanceof ConflictException) {
+          throw error;
+        }
+        // 其他错误忽略，继续检查下一个
+        continue;
+      }
     }
 
     // 检查 screen 是否可用，如果没有则安装

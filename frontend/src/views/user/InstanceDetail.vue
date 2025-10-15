@@ -27,13 +27,13 @@
       </div>
       <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <div class="flex flex-wrap gap-2">
-          <button
+          <!-- <button
             @click="refreshAll"
             :disabled="isLoading"
             class="px-4 py-2 text-sm font-medium rounded-lg border border-blue-400/40 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20 hover:border-blue-300/70 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
           >
             手动刷新
-          </button>
+          </button> -->
           <button
             @click="openCfgEditor"
             :disabled="!instanceData"
@@ -53,45 +53,69 @@
           <button
             @click="startInstance"
             :disabled="!instanceData || isContainerRunning || containerActionLoading"
-            class="px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:border-emerald-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:border-emerald-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-2"
           >
-            启动容器
+            <span
+              class="w-2 h-2 rounded-full"
+              :class="isContainerRunning ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'"
+            ></span>
+            开机
           </button>
           <button
             @click="stopInstance"
             :disabled="!instanceData || !isContainerRunning || containerActionLoading"
-            class="px-4 py-2 text-sm font-medium rounded-lg border border-rose-400/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 hover:border-rose-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-rose-400/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 hover:border-rose-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-2"
           >
-            关闭容器
+            <span
+              class="w-2 h-2 rounded-full"
+              :class="isContainerRunning ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'"
+            ></span>
+            关机
           </button>
           <button
             @click="restartInstance"
             :disabled="!instanceData || !isContainerRunning || containerActionLoading"
-            class="px-4 py-2 text-sm font-medium rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 hover:border-amber-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 hover:border-amber-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-2"
           >
-            重启容器
+            <span
+              class="w-2 h-2 rounded-full"
+              :class="isContainerRunning ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'"
+            ></span>
+            重启
           </button>
         </div>
         <div class="flex flex-wrap gap-2">
           <button
             @click="startServer"
             :disabled="!instanceData || !isContainerRunning || serverActionLoading"
-            class="px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:border-emerald-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:border-emerald-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-2"
           >
+            <span
+              class="w-2 h-2 rounded-full"
+              :class="isServerRunning ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'"
+            ></span>
             启动服务器
           </button>
           <button
             @click="stopServer"
             :disabled="!instanceData || !isContainerRunning || serverActionLoading"
-            class="px-4 py-2 text-sm font-medium rounded-lg border border-rose-400/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 hover:border-rose-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-rose-400/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 hover:border-rose-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-2"
           >
+            <span
+              class="w-2 h-2 rounded-full"
+              :class="isServerRunning ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'"
+            ></span>
             关闭服务器
           </button>
           <button
             @click="restartServer"
             :disabled="!instanceData || !isContainerRunning || serverActionLoading"
-            class="px-4 py-2 text-sm font-medium rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 hover:border-amber-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 hover:border-amber-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-2"
           >
+            <span
+              class="w-2 h-2 rounded-full"
+              :class="isServerRunning ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'"
+            ></span>
             重启服务器
           </button>
         </div>
