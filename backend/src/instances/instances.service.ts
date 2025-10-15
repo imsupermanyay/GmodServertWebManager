@@ -326,7 +326,7 @@ EOFMIRROR
 
     // 检查 screen 是否可用，如果没有则安装
     try {
-      await this.dockerService.execCommand(instance.dockerId, 'which screen > /dev/null || apt-get update && apt-get install -y screen', {
+      await this.dockerService.execCommand(instance.dockerId, 'which screen > /dev/null || (apt-get update && apt-get install -y screen)', {
         cwd: '/app/Steam/',
         detach: false,
       });
@@ -334,8 +334,10 @@ EOFMIRROR
       // 忽略错误，继续执行
     }
 
-    // 使用 screen 会话运行服务器，这样可以通过 screen 发送命令
-    const command = `screen -dmS gmod bash -c './srcds_run ${startupArgs}'`;
+    // 使用 screen 会话运行服务器，并将输出重定向到容器主进程的 stdout
+    // 这样 Docker logs 可以捕获服务器输出，同时我们也可以通过 screen 发送命令
+    // /proc/1/fd/1 是容器主进程的标准输出
+    const command = `screen -dmS gmod bash -c './srcds_run ${startupArgs} 2>&1 | tee /proc/1/fd/1'`;
 
     await this.dockerService.execCommand(instance.dockerId, command, {
       cwd: '/app/Steam/',
@@ -359,16 +361,17 @@ EOFMIRROR
     await this.ensureContainerRunning(instance);
 
     const stopCommand = [
-      'if [ -x ./srcds_run ]; then ./srcds_run -stop >/dev/null 2>&1 || true; fi',
+      'screen -S gmod -X quit 2>/dev/null || true',
       'pkill -f srcds_linux >/dev/null 2>&1 || true',
       'pkill -f srcds_run >/dev/null 2>&1 || true',
+      'pkill -f "tee /proc/1/fd/1" >/dev/null 2>&1 || true',
     ].join('; ');
 
     const result = await this.dockerService.execCommand(instance.dockerId, stopCommand, {
       cwd: '/app/Steam',
     });
 
-    const message = result.output?.trim() || '服务器停止命令已执行';
+    const message = result.output?.trim() || '服务器已停止';
     return { message };
   }
 
