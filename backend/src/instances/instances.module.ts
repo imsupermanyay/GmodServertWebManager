@@ -8,7 +8,6 @@ import { AuthModule } from '../auth/auth.module';
 import { CfgTemplate } from '../config-templates/entities/cfg-template.entity';
 import { StartupOption } from '../config-templates/entities/startup-option.entity';
 import { InstancesGateway } from './instances.gateway';
-import { WsJwtGuard } from '../auth/guards/ws-jwt.guard';
 
 @Module({
   imports: [
@@ -16,7 +15,7 @@ import { WsJwtGuard } from '../auth/guards/ws-jwt.guard';
     AuthModule,
   ],
   controllers: [InstancesController],
-  providers: [InstancesService, DockerService, InstancesGateway, WsJwtGuard],
+  providers: [InstancesService, DockerService, InstancesGateway],
 })
 export class InstancesModule {}
 
