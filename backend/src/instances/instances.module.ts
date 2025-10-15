@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InstancesService } from './instances.service';
 import { InstancesController } from './instances.controller';
@@ -8,6 +8,7 @@ import { AuthModule } from '../auth/auth.module';
 import { CfgTemplate } from '../config-templates/entities/cfg-template.entity';
 import { StartupOption } from '../config-templates/entities/startup-option.entity';
 import { InstancesGateway } from './instances.gateway';
+import { WsJwtGuard } from '../auth/guards/ws-jwt.guard';
 
 @Module({
   imports: [
@@ -15,6 +16,8 @@ import { InstancesGateway } from './instances.gateway';
     AuthModule,
   ],
   controllers: [InstancesController],
-  providers: [InstancesService, DockerService, InstancesGateway],
+  providers: [InstancesService, DockerService, InstancesGateway, WsJwtGuard],
 })
 export class InstancesModule {}
+
+
