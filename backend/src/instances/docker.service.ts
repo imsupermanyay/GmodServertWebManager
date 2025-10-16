@@ -73,15 +73,12 @@ export class DockerService {
   async stopContainer(dockerId: string): Promise<void> {
     try {
       const container = this.docker.getContainer(dockerId);
-      const info = await container.inspect();
-      if (!info.State || info.State.Status === 'exited' || info.State.Status === 'dead' || info.State.Running === false) {
-        return;
-      }
       await container.stop();
     } catch (error) {
       if (error?.statusCode === 304) {
         return;
       }
+      console.log(`停止容器失败: ${error.message}`)
       throw new InternalServerErrorException(`停止容器失败: ${error.message}`);
     }
   }
