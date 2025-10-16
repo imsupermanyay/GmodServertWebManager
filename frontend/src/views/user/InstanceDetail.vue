@@ -786,7 +786,6 @@ const startInstance = async () => {
 }
 
 const stopInstance = async () => {
-  if (!confirm('确定要停止这个实例吗？')) return
   if (containerActionLoading.value) return
 
   containerActionLoading.value = true
@@ -795,8 +794,9 @@ const stopInstance = async () => {
     notifications.success('实例已停止')
     await loadDetail(true)
   } catch (error) {
+    console.log(error.response)
     notifications.error(
-      error.response?.data?.message || '停止失败',
+      error.response?.data?.message ,
       { title: '停止实例失败' }
     )
   } finally {

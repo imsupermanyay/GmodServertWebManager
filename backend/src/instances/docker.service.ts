@@ -75,10 +75,10 @@ export class DockerService {
       const container = this.docker.getContainer(dockerId);
       await container.stop();
     } catch (error) {
+      console.log(`停止容器失败: ${error}`)
       if (error?.statusCode === 304) {
         return;
       }
-      console.log(`停止容器失败: ${error.message}`)
       throw new InternalServerErrorException(`停止容器失败: ${error.message}`);
     }
   }
