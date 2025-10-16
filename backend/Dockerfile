@@ -44,6 +44,10 @@ RUN cd "${STEAMCMD_DIR}" && \
     rm steamcmd_linux.tar.gz && \
     "${STEAMCMD_DIR}/steamcmd.sh" +force_install_dir "${STEAMAPP_DIR}" +login anonymous +app_update 4020 validate +quit
 
+# Return to root for entrypoint (script will drop privileges with gosu)
+USER root
+WORKDIR /
+
 # Ports used by GMod
 EXPOSE 27015/tcp 27015/udp 27005/udp
 
