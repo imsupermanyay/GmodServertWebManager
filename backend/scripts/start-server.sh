@@ -14,6 +14,12 @@ ensure_permissions() {
 ensure_permissions
 
 START_VALUE="${StartValue:-}"
+START_VALUE_FILE="${START_VALUE_FILE:-/opt/steam/startup.args}"
+
+if [[ -z "${START_VALUE}" && -f "${START_VALUE_FILE}" ]]; then
+  START_VALUE="$(<"${START_VALUE_FILE}")"
+  rm -f "${START_VALUE_FILE}"
+fi
 
 if [[ -n "${START_VALUE}" ]]; then
   if [[ ! -x "${STEAMAPP_DIR}/srcds_run" ]]; then

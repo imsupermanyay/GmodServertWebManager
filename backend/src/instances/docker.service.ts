@@ -1,5 +1,7 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { Readable } from 'stream';
+import * as path from 'path';
+import * as tar from 'tar-stream';
 import Docker = require('dockerode');
 
 @Injectable()
@@ -59,27 +61,10 @@ export class DockerService {
     }
   }
 
-  async startContainer(
-    dockerId: string,
-    env?: Record<string, string>,
-  ): Promise<void> {
+  async startContainer(dockerId: string): Promise<void> {
     try {
       const container = this.docker.getContainer(dockerId);
-      const startOptions: Docker.ContainerStartOptions & { Env?: string[] } = {};
-      if (env && Object.keys(env).length > 0) {
-        startOptions.Env = Object.entries(env).map(
-          ([key, value]) => `${key}=${value}`,
-        );
-      }
-
-      if (Object.keys(startOptions).length > 0) {
-        console.log("启动带参数的容器")
-        console.log(startOptions)
-        await container.start(startOptions);
-      } else {
-        console.log("启动容器")
-        await container.start();
-      }
+      await container.start();
     } catch (error) {
       throw new InternalServerErrorException(`启动容器失败: ${error.message}`);
     }
@@ -534,46 +519,33 @@ export class DockerService {
   async writeFileToContainer(dockerId: string, filePath: string, content: string): Promise<void> {
     try {
       const container = this.docker.getContainer(dockerId);
+      const pack = tar.pack();
+      const relativePath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+      const normalizedPath = path.posix.normalize(relativePath);
+      const directoryName = path.posix.dirname(normalizedPath);
 
-      // 转义内容中的特殊字符
-      const escapedContent = content.replace(/'/g, "'\\''");
+      if (normalizedPath.startsWith('..')) {
+        throw new Error('文件路径不能指向容器根目录之外');
+      }
 
-      // 创建目录并写入文件
-      const command = `mkdir -p $(dirname '${filePath}') && echo '${escapedContent}' > '${filePath}'`;
+      if (directoryName && directoryName !== '.') {
+        pack.entry(
+          {
+            name: directoryName.endsWith('/') ? directoryName : `${directoryName}/`,
+            type: 'directory',
+            mode: 0o755,
+          },
+          Buffer.alloc(0),
+        );
+      }
 
-      // 创建 exec 实例
-      const exec = await container.exec({
-        Cmd: ['/bin/sh', '-c', command],
-        AttachStdout: true,
-        AttachStderr: true,
-        Tty: false,
-      });
+      const fileBuffer = Buffer.from(content, 'utf8');
+      pack.entry({ name: normalizedPath, mode: 0o644 }, fileBuffer);
+      pack.finalize();
 
-      // 执行命令
-      const stream = await exec.start({ Detach: false, Tty: false });
-
-      // 等待执行完成
-      return new Promise((resolve, reject) => {
-        let errorOutput = '';
-
-        stream.on('data', (chunk) => {
-          errorOutput += chunk.toString('utf8');
-        });
-
-        stream.on('end', () => {
-          if (errorOutput && errorOutput.toLowerCase().includes('error')) {
-            reject(new Error(`写入文件失败: ${errorOutput}`));
-          } else {
-            resolve();
-          }
-        });
-
-        stream.on('error', (error) => {
-          reject(error);
-        });
-      });
+      await container.putArchive(pack, { path: '/' });
     } catch (error) {
-      throw new InternalServerErrorException(`写入文件到容器失败: ${error.message}`);
+      throw new InternalServerErrorException(`写入容器文件失败: ${error.message}`);
     }
   }
 

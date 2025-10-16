@@ -213,9 +213,12 @@ export class InstancesService {
     }
 
 
-    await this.dockerService.startContainer(instance.dockerId, {
-      StartValue: startupArgs,
-    });
+    await this.dockerService.writeFileToContainer(
+      instance.dockerId,
+      '/opt/steam/startup.args',
+      startupArgs,
+    );
+    await this.dockerService.startContainer(instance.dockerId);
     instance.status = InstanceStatus.RUNNING;
 
     return this.instancesRepository.save(instance);
