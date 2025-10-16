@@ -54,5 +54,3 @@ if [[ -z "${STARTUP}" ]]; then
   exit 1
 fi
 
-# shellcheck disable=SC2086
-exec run_as_steam "${STEAMAPP_DIR}/srcds_run" ${STARTUP}
