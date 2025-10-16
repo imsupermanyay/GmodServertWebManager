@@ -207,7 +207,15 @@ export class InstancesService {
       throw new ConflictException('实例没有关联的 Docker 容器');
     }
 
-    await this.dockerService.startContainer(instance.dockerId);
+    const startupArgs = await this.getStartupArgs(instance);
+    if (!startupArgs) {
+      throw new ConflictException('实例没有关联到启动项！');
+    }
+
+
+    await this.dockerService.startContainer(instance.dockerId, {
+      StartValue: startupArgs,
+    });
     instance.status = InstanceStatus.RUNNING;
 
     return this.instancesRepository.save(instance);

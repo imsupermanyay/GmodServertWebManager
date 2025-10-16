@@ -3,10 +3,10 @@ FROM debian:bookworm-slim
 
 # Common environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
-  STEAMCMD_DIR=/opt/steamcmd \
-  STEAMAPP_DIR=/opt/steam \
-  STEAM_USER=steam \
-  DEFAULT_STARTUP="-console -game garrysmod +map gm_construct +maxplayers 24 -ip 0.0.0.0 -port 27015"
+    STEAMCMD_DIR=/opt/steamcmd \
+    STEAMAPP_DIR=/opt/steam \
+    STEAM_USER=steam \
+    StartValue=""
 
 # Configure Aliyun apt mirrors and install minimal dependencies for SteamCMD/GMod
 RUN rm -rf /etc/apt/sources.list.d/* && \

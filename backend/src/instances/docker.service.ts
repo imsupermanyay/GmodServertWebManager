@@ -59,10 +59,27 @@ export class DockerService {
     }
   }
 
-  async startContainer(dockerId: string): Promise<void> {
+  async startContainer(
+    dockerId: string,
+    env?: Record<string, string>,
+  ): Promise<void> {
     try {
       const container = this.docker.getContainer(dockerId);
-      await container.start();
+      const startOptions: Docker.ContainerStartOptions & { Env?: string[] } = {};
+      if (env && Object.keys(env).length > 0) {
+        startOptions.Env = Object.entries(env).map(
+          ([key, value]) => `${key}=${value}`,
+        );
+      }
+
+      if (Object.keys(startOptions).length > 0) {
+        console.log("启动带参数的容器")
+        console.log(startOptions)
+        await container.start(startOptions);
+      } else {
+        console.log("启动容器")
+        await container.start();
+      }
     } catch (error) {
       throw new InternalServerErrorException(`启动容器失败: ${error.message}`);
     }
