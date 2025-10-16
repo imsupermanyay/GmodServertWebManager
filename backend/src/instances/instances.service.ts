@@ -298,7 +298,7 @@ export class InstancesService {
     // 检查 screen 是否可用，如果没有则安装
     try {
       await this.dockerService.execCommand(instance.dockerId, 'which screen > /dev/null || (apt-get update && apt-get install -y screen)', {
-        cwd: '/app/Steam/',
+        cwd: '/opt/steam/',
         detach: false,
       });
     } catch (error) {
@@ -309,10 +309,10 @@ export class InstancesService {
     // runuser 用于切换到 gmod 用户，避免 ROOT 警告
     // stdbuf -o0 禁用输出缓冲，确保实时显示所有控制台消息
     // /proc/1/fd/1 是容器主进程的标准输出
-    const command = `runuser -u gmod -- bash -c 'cd /app/Steam && screen -dmS gmod bash -c "stdbuf -o0 ./srcds_run ${startupArgs} 2>&1 | stdbuf -o0 tee /proc/1/fd/1"'`;
+    const command = `runuser -u gmod -- bash -c 'cd /opt/steam && screen -dmS gmod bash -c "stdbuf -o0 ./srcds_run ${startupArgs} 2>&1 | stdbuf -o0 tee /proc/1/fd/1"'`;
 
     await this.dockerService.execCommand(instance.dockerId, command, {
-      cwd: '/app/Steam/',
+      cwd: '/opt/steam/',
       detach: false,
     });
 
@@ -341,7 +341,7 @@ export class InstancesService {
     ].join('; ');
 
     const result = await this.dockerService.execCommand(instance.dockerId, stopCommand, {
-      cwd: '/app/Steam',
+      cwd: '/opt/steam',
     });
 
     const message = result.output?.trim() || '服务器已停止';
@@ -447,7 +447,7 @@ export class InstancesService {
 
     try {
       await this.dockerService.execCommand(instance.dockerId, screenCommand, {
-        cwd: '/app/Steam',
+        cwd: '/opt/steam',
         detach: false,
       });
 
