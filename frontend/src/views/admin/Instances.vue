@@ -128,14 +128,14 @@
             <p class="text-xs text-gray-500 mt-1">自动生成：/opt/gmodserver/{实例名称}/</p>
           </div>
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Docker 镜像（可选）</label>
-            <input
+            <label class="block text-sm font-medium text-gray-700 mb-2">Docker 镜像</label>
+            <select
               v-model="createForm.dockerImage"
-              type="text"
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="默认: lacledeslan/steamcmd"
-            />
-            <p class="text-xs text-gray-500 mt-1">留空则使用默认镜像 lacledeslan/steamcmd，容器将自动下载 GMOD</p>
+            >
+              <option value="gmod:local">gmod:local</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">当前仅支持内置镜像 gmod:local</p>
           </div>
           <div class="flex justify-end space-x-3">
             <button
@@ -264,7 +264,7 @@ const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const createForm = ref({
   name: '',
-  dockerImage: '',
+  dockerImage: 'gmod:local',
   hostDirectory: '',
   containerDirectory: '/opt/steam/garrysmod/addons'
 })
@@ -368,7 +368,7 @@ const createInstance = async () => {
     showCreateModal.value = false
     createForm.value = {
       name: '',
-      dockerImage: '',
+      dockerImage: 'gmod:local',
       hostDirectory: '',
       containerDirectory: '/opt/steam/garrysmod/addons'
     }

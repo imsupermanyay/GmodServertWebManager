@@ -40,11 +40,18 @@ export class InstancesService {
     const dockerOptions: any = {};
 
     // 如果指定了挂载目录，添加到配置中
+    const binds: string[] = [
+      '/etc/localtime:/etc/localtime:ro',
+      '/etc/timezone:/etc/timezone:ro',
+    ];
+
     if (createInstanceDto.hostDirectory && createInstanceDto.containerDirectory) {
-      dockerOptions.HostConfig = {
-        Binds: [`${createInstanceDto.hostDirectory}:${createInstanceDto.containerDirectory}`],
-      };
+      binds.push(`${createInstanceDto.hostDirectory}:${createInstanceDto.containerDirectory}`);
     }
+
+    dockerOptions.HostConfig = {
+      Binds: binds,
+    };
 
     // 设置 Docker 启动命令（默认下载 GMOD 4020）
     // 这个命令会在容器启动时执行，用于初始化环境
