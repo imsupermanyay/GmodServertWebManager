@@ -1,14 +1,5 @@
 ﻿<template>
-  <div class="relative flex flex-col gap-6 h-[calc(100vh-5rem)] text-slate-100">
-    <div
-      v-if="showScreenOverlay"
-      class="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-slate-950/80 backdrop-blur-sm text-slate-200"
-    >
-      <div class="h-12 w-12 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-400"></div>
-      <div class="text-lg font-semibold">{{ screenOverlayMessage }}</div>
-      <p class="text-sm text-slate-400">请稍候，操作完成后页面将自动刷新。</p>
-    </div>
-
+  <div class="flex flex-col gap-6 h-[calc(100vh-5rem)] text-slate-100">
     <header class="flex flex-col gap-4 flex-none xl:flex-row xl:items-start xl:justify-between">
       <div class="space-y-2">
         <button
@@ -416,8 +407,6 @@ const showStartupModal = ref(false)
 const startupOptionContent = ref('')
 const containerActionLoading = ref(false)
 const serverActionLoading = ref(false)
-const showScreenOverlay = ref(false)
-const screenOverlayMessage = ref('')
 const useRealtimeLogs = ref(hasRealtimeToken)
 const socketConnected = ref(false)
 
@@ -799,26 +788,19 @@ const startInstance = async () => {
 const stopInstance = async () => {
   if (containerActionLoading.value) return
 
-  const previousLogs = detailLogs.value
-
-  detailLogs.value = ''
-  screenOverlayMessage.value = '实例正在关机，请稍候...'
-  showScreenOverlay.value = true
   containerActionLoading.value = true
   try {
     await instancesAPI.stop(props.id)
     notifications.success('实例已停止')
     await loadDetail(true)
   } catch (error) {
-    detailLogs.value = previousLogs
-    console.log(error.response) 
+    console.log(error.response)
     notifications.error(
       error.response?.data?.message ,
       { title: '停止实例失败' }
     )
   } finally {
     containerActionLoading.value = false
-    showScreenOverlay.value = false
   }
 }
 

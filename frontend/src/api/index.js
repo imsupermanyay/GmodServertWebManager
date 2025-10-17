@@ -14,7 +14,7 @@ const api = axios.create({
     'Content-Type': 'application/json'
   },
   withCredentials: true,  // 支持跨域携带 cookie
-  timeout: 10000
+  timeout: 20000
 })
 
 // 请求拦截器

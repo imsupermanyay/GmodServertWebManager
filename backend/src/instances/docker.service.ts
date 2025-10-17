@@ -169,6 +169,14 @@ export class DockerService {
       const container = this.docker.getContainer(dockerId);
       await container.remove({ force: true });
     } catch (error) {
+      const status = (error as any)?.statusCode;
+      const message = (error as any)?.json?.message || (error as any)?.reason || (error as any)?.message || '';
+
+      if (status === 404 || /no such container/i.test(message)) {
+        // 容器已经不存在，视为成功删除
+        return;
+      }
+
       throw new InternalServerErrorException(`删除容器失败: ${error.message}`);
     }
   }
