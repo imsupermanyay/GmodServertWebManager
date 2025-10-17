@@ -92,7 +92,11 @@ export const instancesAPI = {
   restartServer: (id) => api.post(`/instances/${id}/server/restart`),
   getLogs: (id, params) => api.get(`/instances/${id}/logs`, { params }),
   getInfo: (id) => api.get(`/instances/${id}/info`),
-  execCommand: (id, data) => api.post(`/instances/${id}/exec`, data)
+  execCommand: (id, data) => api.post(`/instances/${id}/exec`, data),
+  getModeLinkInstances: () => api.get('/instances/links/instances'),
+  getModeLinkGamemodes: () => api.get('/instances/links/gamemodes'),
+  bindModeLink: (data) => api.post('/instances/links/bind', data),
+  unbindModeLink: (data) => api.post('/instances/links/unbind', data)
 }
 
 // CFG 模板相关

@@ -8,6 +8,9 @@ import { DockerService } from './docker.service';
 import { InstanceStatus, UserRole } from '../common/enums';
 import { CfgTemplate } from '../config-templates/entities/cfg-template.entity';
 import { StartupOption } from '../config-templates/entities/startup-option.entity';
+import { InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { promises as fs, Dirent } from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class InstancesService {
@@ -20,6 +23,180 @@ export class InstancesService {
     private startupOptionsRepository: Repository<StartupOption>,
     private dockerService: DockerService,
   ) { }
+
+  private readonly hostInstancesRoot = process.env.GMOD_INSTANCE_ROOT || '/opt/gmodserver';
+  private readonly gamemodeRoot = process.env.GMOD_GAMEMODE_ROOT || '/opt/gmodgammodes';
+
+  private sanitizeIdentifier(value: string | undefined, label: string): string {
+    const trimmed = (value ?? '').trim();
+    if (!trimmed) {
+      throw new BadRequestException(`${label}不能为空`);
+    }
+    if (trimmed.includes('..') || trimmed.includes('/') || trimmed.includes('\\')) {
+      throw new BadRequestException(`${label}包含非法字符`);
+    }
+    return trimmed;
+  }
+
+  private async safeReaddir(targetPath: string): Promise<Dirent[]> {
+    try {
+      return await fs.readdir(targetPath, { withFileTypes: true });
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === 'ENOENT') {
+        return [];
+      }
+      throw new InternalServerErrorException(`读取目录失败: ${err.message}`);
+    }
+  }
+
+  async listHostInstanceLinks(): Promise<
+    Array<{
+      name: string;
+      path: string;
+      isSymlink: boolean;
+      linkedModeName: string | null;
+      targetPath: string | null;
+    }>
+  > {
+    const entries = await this.safeReaddir(this.hostInstancesRoot);
+    const results: Array<{
+      name: string;
+      path: string;
+      isSymlink: boolean;
+      linkedModeName: string | null;
+      targetPath: string | null;
+    }> = [];
+    const gamemodeRootResolved = path.resolve(this.gamemodeRoot);
+
+    for (const entry of entries) {
+      if (!(entry.isDirectory() || entry.isSymbolicLink())) {
+        continue;
+      }
+
+      const fullPath = path.join(this.hostInstancesRoot, entry.name);
+      try {
+        const stat = await fs.lstat(fullPath);
+        const isSymlink = stat.isSymbolicLink();
+        let targetPath: string | null = null;
+        let linkedModeName: string | null = null;
+
+        if (isSymlink) {
+          const rawTarget = await fs.readlink(fullPath);
+          const resolvedTarget = path.isAbsolute(rawTarget)
+            ? rawTarget
+            : path.resolve(path.dirname(fullPath), rawTarget);
+          targetPath = resolvedTarget;
+          const absoluteTarget = path.resolve(resolvedTarget);
+          if (absoluteTarget.startsWith(gamemodeRootResolved)) {
+            const relative = path.relative(gamemodeRootResolved, absoluteTarget);
+            linkedModeName = relative.split(path.sep)[0] || null;
+          }
+        }
+
+        results.push({
+          name: entry.name,
+          path: fullPath,
+          isSymlink,
+          linkedModeName,
+          targetPath,
+        });
+      } catch (error) {
+        const err = error as NodeJS.ErrnoException;
+        throw new InternalServerErrorException(`读取实例 ${entry.name} 状态失败: ${err.message}`);
+      }
+    }
+
+    return results.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async listGamemodes(): Promise<Array<{ name: string; path: string }>> {
+    const entries = await this.safeReaddir(this.gamemodeRoot);
+    const results: Array<{ name: string; path: string }> = [];
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+
+      const fullPath = path.join(this.gamemodeRoot, entry.name);
+      results.push({
+        name: entry.name,
+        path: fullPath,
+      });
+    }
+
+    return results.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async bindInstanceToGamemode(
+    instanceName: string,
+    modeName: string,
+  ): Promise<{ instanceName: string; modeName: string; targetPath: string }> {
+    const sanitizedInstance = this.sanitizeIdentifier(instanceName, '实例名称');
+    const sanitizedMode = this.sanitizeIdentifier(modeName, '模式名称');
+
+    const instancePath = path.join(this.hostInstancesRoot, sanitizedInstance);
+    const modePath = path.join(this.gamemodeRoot, sanitizedMode);
+
+    await fs.mkdir(this.hostInstancesRoot, { recursive: true });
+
+    let modeStat;
+    try {
+      modeStat = await fs.stat(modePath);
+    } catch {
+      throw new NotFoundException(`模式目录不存在: ${sanitizedMode}`);
+    }
+
+    if (!modeStat.isDirectory()) {
+      throw new ConflictException('目标模式不是有效的目录');
+    }
+
+    const instanceStat = await fs.lstat(instancePath).catch(() => null);
+    if (instanceStat) {
+      if (instanceStat.isSymbolicLink()) {
+        await fs.unlink(instancePath);
+      } else if (instanceStat.isDirectory()) {
+        const contents = await fs.readdir(instancePath);
+        if (contents.length > 0) {
+          throw new ConflictException('实例目录非空，无法绑定为软链接');
+        }
+        await fs.rm(instancePath, { recursive: true });
+      } else {
+        throw new ConflictException('实例路径已存在且类型不受支持');
+      }
+    } else {
+      await fs.mkdir(path.dirname(instancePath), { recursive: true });
+    }
+
+    await fs.symlink(modePath, instancePath);
+
+    return {
+      instanceName: sanitizedInstance,
+      modeName: sanitizedMode,
+      targetPath: modePath,
+    };
+  }
+
+  async unbindInstanceLink(instanceName: string): Promise<{ instanceName: string }> {
+    const sanitizedInstance = this.sanitizeIdentifier(instanceName, '实例名称');
+    const instancePath = path.join(this.hostInstancesRoot, sanitizedInstance);
+
+    const instanceStat = await fs.lstat(instancePath).catch(() => null);
+    if (!instanceStat) {
+      await fs.mkdir(instancePath, { recursive: true });
+      return { instanceName: sanitizedInstance };
+    }
+
+    if (!instanceStat.isSymbolicLink()) {
+      throw new ConflictException('该实例当前未绑定模式');
+    }
+
+    await fs.unlink(instancePath);
+    await fs.mkdir(instancePath, { recursive: true });
+
+    return { instanceName: sanitizedInstance };
+  }
 
   async create(createInstanceDto: CreateInstanceDto): Promise<Instance> {
     // 检查实例名称是否重复

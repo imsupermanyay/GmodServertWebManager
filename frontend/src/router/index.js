@@ -33,6 +33,11 @@ const routes = [
         path: 'startup-options',
         name: 'StartupOptions',
         component: () => import('../views/admin/StartupOptions.vue')
+      },
+      {
+        path: 'mode-links',
+        name: 'ModeLinks',
+        component: () => import('../views/admin/ModeLinks.vue')
       }
     ]
   },

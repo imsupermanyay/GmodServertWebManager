@@ -23,6 +23,30 @@ export class InstancesController {
     return this.instancesService.findAll(req.user.id, req.user.role);
   }
 
+  @Get('links/instances')
+  @Roles(UserRole.SUPER_ADMIN)
+  listInstanceLinks() {
+    return this.instancesService.listHostInstanceLinks();
+  }
+
+  @Get('links/gamemodes')
+  @Roles(UserRole.SUPER_ADMIN)
+  listGamemodes() {
+    return this.instancesService.listGamemodes();
+  }
+
+  @Post('links/bind')
+  @Roles(UserRole.SUPER_ADMIN)
+  bindInstanceToMode(@Body() body: { instanceName: string; modeName: string }) {
+    return this.instancesService.bindInstanceToGamemode(body.instanceName, body.modeName);
+  }
+
+  @Post('links/unbind')
+  @Roles(UserRole.SUPER_ADMIN)
+  unbindInstance(@Body() body: { instanceName: string }) {
+    return this.instancesService.unbindInstanceLink(body.instanceName);
+  }
+
   @Get('my')
   @Roles(UserRole.ADMIN)
   getMyInstances(@Request() req) {
