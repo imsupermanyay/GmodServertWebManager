@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { InstancesModule } from './instances/instances.module';
 import { HealthModule } from './health/health.module';
 import { ConfigTemplatesModule } from './config-templates/config-templates.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ConfigTemplatesModule } from './config-templates/config-templates.modul
     UsersModule,
     InstancesModule,
     ConfigTemplatesModule,
+    WebhooksModule,
   ],
 })
 export class AppModule { }
