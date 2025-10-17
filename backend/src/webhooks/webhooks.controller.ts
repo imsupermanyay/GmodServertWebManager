@@ -1,10 +1,19 @@
-import { Controller, Get, Req } from '@nestjs/common';
+import { Controller, Get, Post, Req } from '@nestjs/common';
 import { Request } from 'express';
 
 @Controller('webhooks')
 export class WebhooksController {
   @Get('gitea')
   handleGiteaWebhook(@Req() req: Request) {
+    return this.logAndRespond(req);
+  }
+
+  @Post('gitea')
+  handleGiteaWebhookPost(@Req() req: Request) {
+    return this.logAndRespond(req);
+  }
+
+  private logAndRespond(req: Request) {
     const payload = {
       headers: req.headers,
       query: req.query,
