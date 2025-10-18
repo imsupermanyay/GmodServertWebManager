@@ -30,7 +30,7 @@ export class WebhooksController {
       url: req.originalUrl,
     };
 
-    console.log('[Gitea Webhook] Incoming payload:', JSON.stringify(payload, null, 2));
+    // console.log('[Gitea Webhook] Incoming payload:', JSON.stringify(payload, null, 2));
 
     const eventHeader = req.headers['x-gitea-event'] ?? req.headers['x-github-event'];
     const eventType = Array.isArray(eventHeader) ? eventHeader[0] : eventHeader;
