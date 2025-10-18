@@ -25,7 +25,7 @@ export class InstancesService {
   ) { }
 
   private readonly hostInstancesRoot = process.env.GMOD_INSTANCE_ROOT || '/opt/gmodserver';
-  private readonly gamemodeRoot = process.env.GMOD_GAMEMODE_ROOT || '/opt/gmodgammodes';
+  private readonly gamemodeRoot = process.env.GMOD_GAMEMODE_ROOT || '/opt/gmodgamemodes';
 
   private sanitizeIdentifier(value: string | undefined, label: string): string {
     const trimmed = (value ?? '').trim();
