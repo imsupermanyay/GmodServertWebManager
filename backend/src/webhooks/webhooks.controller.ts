@@ -72,7 +72,7 @@ export class WebhooksController {
   }
 
   private pullRepository(repositoryName: string, branchName: string | null) {
-    const repoPath = `/opt/gmodgammodes/${repositoryName}`;
+    const repoPath = `/opt/gmodgamemodes/${repositoryName}`;
     const args = branchName ? ` origin ${branchName}` : '';
     const command = `git -C ${repoPath} pull${args}`;
 
