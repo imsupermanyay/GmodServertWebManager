@@ -183,7 +183,7 @@ const loading = ref(false)
 const refreshing = ref(false)
 
 const hostRoot = '/opt/gmodserver'
-const modeRoot = '/opt/gmodgamemodes'
+const modeRoot = '/opt/allgamemodes'
 
 const loadData = async (showSpinner = false) => {
   if (showSpinner) {
