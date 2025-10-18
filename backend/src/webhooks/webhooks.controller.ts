@@ -5,7 +5,7 @@ import { promisify } from 'util';
 import { existsSync } from 'fs';
 
 const execAsync = promisify(exec);
-const BASE_REPO_DIR = '/opt/allgamemodes';
+const BASE_REPO_DIR = '/opt/gmodgamemodes';
 
 @Controller('webhooks')
 export class WebhooksController {
