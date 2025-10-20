@@ -6,7 +6,7 @@ import * as mysql from 'mysql2/promise';
 
 async function initializeDatabase() {
   const logger = new Logger('DatabaseInit');
-  const dbHost = process.env.DB_HOST || '42.121.120.120';
+  const dbHost = process.env.DB_HOST;
   const dbPort = parseInt(process.env.DB_PORT) || 3306;
   const dbUser = process.env.DB_USERNAME || 'root';
   const dbPassword = process.env.DB_PASSWORD || 'password';

@@ -16,7 +16,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     }),
     TypeOrmModule.forRoot({
       type: 'mysql',
-      host: process.env.DB_HOST || '42.121.120.120',
+      host: process.env.DB_HOST,
       port: parseInt(process.env.DB_PORT) || 3306,
       username: process.env.DB_USERNAME || 'root',
       password: process.env.DB_PASSWORD || 'password',
