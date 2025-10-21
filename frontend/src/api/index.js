@@ -117,4 +117,13 @@ export const startupOptionsAPI = {
   delete: (id) => api.delete(`/startup-options/${id}`)
 }
 
+// 模式管理相关
+export const gamemodesAPI = {
+  getAll: () => api.get('/gamemodes'),
+  getOne: (id) => api.get(`/gamemodes/${id}`),
+  create: (data) => api.post('/gamemodes', data),
+  update: (id, data) => api.patch(`/gamemodes/${id}`, data),
+  delete: (id) => api.delete(`/gamemodes/${id}`)
+}
+
 export default api

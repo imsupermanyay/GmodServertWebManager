@@ -7,6 +7,7 @@ import { InstancesModule } from './instances/instances.module';
 import { HealthModule } from './health/health.module';
 import { ConfigTemplatesModule } from './config-templates/config-templates.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { GamemodesModule } from './gamemodes/gamemodes.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     InstancesModule,
     ConfigTemplatesModule,
     WebhooksModule,
+    GamemodesModule,
   ],
 })
 export class AppModule { }

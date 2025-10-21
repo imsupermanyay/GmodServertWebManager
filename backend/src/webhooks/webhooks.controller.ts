@@ -3,6 +3,7 @@ import { Request } from 'express';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync } from 'fs';
+import { GamemodesService } from '../gamemodes/gamemodes.service';
 
 const execAsync = promisify(exec);
 const BASE_REPO_DIR = '/opt/gmodgamemodes';
@@ -10,6 +11,8 @@ const BASE_REPO_DIR = '/opt/gmodgamemodes';
 @Controller('webhooks')
 export class WebhooksController {
   private readonly repoTasks = new Map<string, Promise<void>>();
+
+  constructor(private readonly gamemodesService: GamemodesService) {}
 
   @Get('gitea')
   handleGiteaWebhook(@Req() req: Request) {
@@ -113,6 +116,7 @@ export class WebhooksController {
       return;
     }
 
+    // 1. Pull core 仓库的更新
     await this.runGitCommand(
       `git -C "${repoPath}" fetch --all --prune`,
       repositoryName,
@@ -121,6 +125,100 @@ export class WebhooksController {
       `git -C "${repoPath}" reset --hard origin/${branchName}`,
       repositoryName,
     );
+
+    // 2. 如果是 _core 仓库，则同步到 dev
+    if (repositoryName.endsWith('_core')) {
+      await this.syncCoreToDevRepository(repositoryName);
+    }
+  }
+
+  private async syncCoreToDevRepository(repositoryName: string) {
+    try {
+      // 解析模式名称
+      const gamemodeName = this.gamemodesService.parseGamemodeNameFromRepo(repositoryName);
+      if (!gamemodeName) {
+        console.warn(`[Webhook][${repositoryName}] Unable to parse gamemode name`);
+        return;
+      }
+
+      console.log(`[Webhook][${repositoryName}] Parsed gamemode name: ${gamemodeName}`);
+
+      // 获取模式配置
+      const gamemodeDirs = await this.gamemodesService.getGamemodeDirs(gamemodeName);
+      if (!gamemodeDirs) {
+        console.warn(`[Webhook][${repositoryName}] Gamemode config not found for: ${gamemodeName}`);
+        return;
+      }
+
+      const { coreDir, buildDir, devDir, devRepoUrl } = gamemodeDirs;
+
+      console.log(`[Webhook][${repositoryName}] Syncing to dev repository...`);
+      console.log(`  Core Dir: ${coreDir}`);
+      console.log(`  Build Dir: ${buildDir}`);
+      console.log(`  Dev Dir: ${devDir}`);
+
+      // 检查目录是否存在
+      if (!existsSync(coreDir)) {
+        console.error(`[Webhook][${repositoryName}] Core directory does not exist: ${coreDir}`);
+        return;
+      }
+      if (!existsSync(buildDir)) {
+        console.error(`[Webhook][${repositoryName}] Build directory does not exist: ${buildDir}`);
+        return;
+      }
+      if (!existsSync(devDir)) {
+        console.error(`[Webhook][${repositoryName}] Dev directory does not exist: ${devDir}`);
+        return;
+      }
+
+      // 复制 core 和 build 目录到 dev
+      console.log(`[Webhook][${repositoryName}] Copying core directory to dev...`);
+      await this.runGitCommand(
+        `rsync -av --delete "${coreDir}/" "${devDir}/core/"`,
+        repositoryName,
+      );
+
+      console.log(`[Webhook][${repositoryName}] Copying build directory to dev...`);
+      await this.runGitCommand(
+        `rsync -av --delete "${buildDir}/" "${devDir}/build/"`,
+        repositoryName,
+      );
+
+      // 提交并推送到 dev 仓库
+      console.log(`[Webhook][${repositoryName}] Committing changes to dev repository...`);
+
+      // 添加所有更改
+      await this.runGitCommand(
+        `git -C "${devDir}" add -A`,
+        repositoryName,
+      );
+
+      // 检查是否有更改需要提交
+      const { stdout: statusOutput } = await execAsync(`git -C "${devDir}" status --porcelain`);
+      if (!statusOutput.trim()) {
+        console.log(`[Webhook][${repositoryName}] No changes to commit in dev repository`);
+        return;
+      }
+
+      // 提交更改
+      const commitMessage = `Auto-sync from ${gamemodeName}_core at ${new Date().toISOString()}`;
+      await this.runGitCommand(
+        `git -C "${devDir}" commit -m "${commitMessage}"`,
+        repositoryName,
+      );
+
+      // 推送到远程
+      console.log(`[Webhook][${repositoryName}] Pushing to dev repository...`);
+      await this.runGitCommand(
+        `git -C "${devDir}" push origin HEAD`,
+        repositoryName,
+      );
+
+      console.log(`[Webhook][${repositoryName}] ✅ Successfully synced to dev repository!`);
+    } catch (error) {
+      console.error(`[Webhook][${repositoryName}] Failed to sync to dev:`, error.message);
+      throw error;
+    }
   }
 
   private async runGitCommand(command: string, repositoryName: string) {

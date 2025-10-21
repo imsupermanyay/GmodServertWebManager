@@ -38,6 +38,11 @@ const routes = [
         path: 'mode-links',
         name: 'ModeLinks',
         component: () => import('../views/admin/ModeLinks.vue')
+      },
+      {
+        path: 'gamemodes',
+        name: 'Gamemodes',
+        component: () => import('../views/admin/Gamemodes.vue')
       }
     ]
   },

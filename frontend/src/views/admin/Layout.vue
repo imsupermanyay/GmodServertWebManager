@@ -40,6 +40,13 @@
             >
               模式链接
             </router-link>
+            <router-link
+              to="/admin/gamemodes"
+              class="px-3 py-2 rounded-md text-sm font-medium"
+              :class="$route.path === '/admin/gamemodes' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-gray-200'"
+            >
+              模式管理
+            </router-link>
           </div>
           <div class="flex items-center space-x-4">
             <span class="text-sm text-gray-700">{{ authStore.user?.username }}</span>
