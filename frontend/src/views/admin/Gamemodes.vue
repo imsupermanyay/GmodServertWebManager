@@ -93,7 +93,7 @@
                 v-model="form.onlineDir"
                 type="text"
                 required
-                placeholder="/opt/gmodgamemodes/ttt_online"
+                placeholder="/opt/allgamemodes/ttt_online"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -116,7 +116,7 @@
                 v-model="form.devDir"
                 type="text"
                 required
-                placeholder="/opt/gmodgamemodes/ttt_dev"
+                placeholder="/opt/allgamemodes/ttt_dev"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -139,7 +139,7 @@
                 v-model="form.coreDir"
                 type="text"
                 required
-                placeholder="/opt/gmodgamemodes/ttt_core"
+                placeholder="/opt/allgamemodes/ttt_core"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -149,7 +149,7 @@
                 v-model="form.buildDir"
                 type="text"
                 required
-                placeholder="/opt/gmodgamemodes/ttt_build"
+                placeholder="/opt/allgamemodes/ttt_build"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

@@ -6,13 +6,13 @@ import { existsSync } from 'fs';
 import { GamemodesService } from '../gamemodes/gamemodes.service';
 
 const execAsync = promisify(exec);
-const BASE_REPO_DIR = '/opt/gmodgamemodes';
+const BASE_REPO_DIR = '/opt/allgamemodes';
 
 @Controller('webhooks')
 export class WebhooksController {
   private readonly repoTasks = new Map<string, Promise<void>>();
 
-  constructor(private readonly gamemodesService: GamemodesService) {}
+  constructor(private readonly gamemodesService: GamemodesService) { }
 
   @Get('gitea')
   handleGiteaWebhook(@Req() req: Request) {
