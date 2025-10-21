@@ -110,8 +110,8 @@ export class UsersService {
       }
 
       // 获取配置
-      const username = process.env.SUPER_ADMIN_USERNAME || 'admin';
-      const password = process.env.SUPER_ADMIN_PASSWORD || 'admin123';
+      const username = process.env.SUPER_ADMIN_USERNAME;
+      const password = process.env.SUPER_ADMIN_PASSWORD;
 
 
       this.logger.log(`准备创建超级管理员账号: ${username}`);
