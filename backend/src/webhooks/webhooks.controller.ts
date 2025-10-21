@@ -171,16 +171,17 @@ export class WebhooksController {
         return;
       }
 
-      // 复制 core 和 build 目录到 dev
-      console.log(`[Webhook][${repositoryName}] Copying core directory to dev...`);
+      // Sync core/build contents into the dev repository
+      // Sync build first, then overlay core so core wins conflicts
+      console.log(`[Webhook][${repositoryName}] Syncing build directory into dev root...`);
       await this.runGitCommand(
-        `rsync -av --delete "${coreDir}/" "${devDir}/core/"`,
+        `rsync -av --delete --exclude '.git/' --exclude '.git' "${buildDir}/" "${devDir}/"`,
         repositoryName,
       );
 
-      console.log(`[Webhook][${repositoryName}] Copying build directory to dev...`);
+      console.log(`[Webhook][${repositoryName}] Overlaying core directory into dev root...`);
       await this.runGitCommand(
-        `rsync -av --delete "${buildDir}/" "${devDir}/build/"`,
+        `rsync -av --exclude '.git/' --exclude '.git' "${coreDir}/" "${devDir}/"`,
         repositoryName,
       );
 
