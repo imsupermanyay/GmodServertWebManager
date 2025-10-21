@@ -171,6 +171,12 @@ export class WebhooksController {
         return;
       }
 
+      console.log(`[Webhook][${repositoryName}] Cleaning dev directory (keeping .git)...`);
+      await this.runGitCommand(
+        `find "${devDir}" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +`,
+        repositoryName,
+      );
+
       // Sync core/build contents into the dev repository
       // Sync build first, then overlay core so core wins conflicts
       console.log(`[Webhook][${repositoryName}] Syncing build directory into dev root...`);
