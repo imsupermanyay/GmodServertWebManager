@@ -11,7 +11,7 @@ import {
 import { GamemodesService } from './gamemodes.service';
 import { CreateGamemodeDto } from './dto/create-gamemode.dto';
 import { UpdateGamemodeDto } from './dto/update-gamemode.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('gamemodes')
 @UseGuards(JwtAuthGuard)
