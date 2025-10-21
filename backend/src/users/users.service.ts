@@ -113,6 +113,10 @@ export class UsersService {
       const username = process.env.SUPER_ADMIN_USERNAME || 'admin';
       const password = process.env.SUPER_ADMIN_PASSWORD || 'admin123';
 
+      console.log('我看看')
+      console.log(username)
+      console.log(password)
+
       this.logger.log(`准备创建超级管理员账号: ${username}`);
       this.logger.log(`密码长度: ${password.length}`);
 
