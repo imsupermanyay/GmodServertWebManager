@@ -445,6 +445,18 @@
                 </button>
               </div>
 
+              <!-- 全选按钮 -->
+              <button
+                v-if="fileList.length > 0"
+                @click="toggleSelectAll"
+                class="px-3 py-2 text-sm font-medium rounded-lg border border-cyan-400/40 bg-cyan-500/20 text-cyan-200 hover:bg-cyan-500/30 hover:border-cyan-300/70 hover:text-white transition flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                {{ selectedFiles.length === fileList.length ? '取消全选' : '全选' }}
+              </button>
+
               <!-- 多选操作按钮组 -->
               <div v-if="selectedFiles.length > 0" class="flex items-center gap-2 ml-auto">
                 <span class="text-sm text-slate-300">已选择 {{ selectedFiles.length }} 项</span>
@@ -515,22 +527,25 @@
               <div
                 v-for="file in fileList"
                 :key="file.name"
-                @click="toggleFileSelection(file)"
+                @click="handleFileClick(file)"
                 :class="[
-                  'group relative bg-slate-800/50 border rounded-lg p-4 cursor-pointer transition-all',
+                  'relative bg-slate-800/50 border rounded-lg p-4 cursor-pointer transition-all select-none',
                   isFileSelected(file)
                     ? 'border-blue-400 bg-blue-500/20 ring-2 ring-blue-400/50'
                     : 'border-white/5 hover:border-blue-400/40 hover:bg-slate-800/70'
                 ]"
               >
                 <!-- 选中标记 -->
-                <div class="absolute top-2 right-2">
+                <div
+                  class="absolute top-2 right-2 z-10"
+                  @click.stop="toggleFileSelection(file)"
+                >
                   <div
                     :class="[
-                      'w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
+                      'w-5 h-5 rounded border-2 flex items-center justify-center transition-all hover:scale-110',
                       isFileSelected(file)
                         ? 'bg-blue-500 border-blue-500'
-                        : 'bg-slate-700/50 border-slate-600 group-hover:border-blue-400/50'
+                        : 'bg-slate-700/50 border-slate-600 hover:border-blue-400'
                     ]"
                   >
                     <svg v-if="isFileSelected(file)" class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -540,7 +555,7 @@
                 </div>
 
                 <!-- 文件图标 -->
-                <div class="flex flex-col items-center mb-2">
+                <div class="flex flex-col items-center mb-2 pointer-events-none">
                   <svg v-if="file.isDirectory" class="w-12 h-12 text-blue-400 mb-2" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                   </svg>
@@ -551,43 +566,16 @@
 
                 <!-- 文件名 -->
                 <p
-                  class="text-xs font-medium text-center text-white truncate mb-1"
+                  class="text-xs font-medium text-center text-white truncate mb-1 pointer-events-none"
                   :title="file.name"
-                  @dblclick.stop="file.isDirectory ? navigateInto(file.name) : downloadSingleFile(file.name, file.isDirectory)"
                 >
                   {{ file.name }}
                 </p>
 
                 <!-- 文件信息 -->
-                <p class="text-[10px] text-center text-slate-400">
+                <p class="text-[10px] text-center text-slate-400 pointer-events-none">
                   {{ file.isDirectory ? '文件夹' : formatFileSize(file.size) }}
                 </p>
-
-                <!-- 快捷操作按钮 -->
-                <div class="absolute inset-0 bg-slate-900/90 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2" @click.stop>
-                  <button
-                    v-if="file.isDirectory"
-                    @click.stop="navigateInto(file.name)"
-                    class="px-2 py-1 text-xs font-medium rounded border border-blue-400/40 bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 transition"
-                    title="打开文件夹"
-                  >
-                    打开
-                  </button>
-                  <button
-                    @click.stop="downloadSingleFile(file.name, file.isDirectory)"
-                    class="px-2 py-1 text-xs font-medium rounded border border-emerald-400/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30 transition"
-                    title="下载"
-                  >
-                    下载
-                  </button>
-                  <button
-                    @click.stop="deleteSingleFile(file.name, file.isDirectory)"
-                    class="px-2 py-1 text-xs font-medium rounded border border-rose-400/40 bg-rose-500/20 text-rose-200 hover:bg-rose-500/30 transition"
-                    title="删除"
-                  >
-                    删除
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -1478,6 +1466,25 @@ const isFileSelected = (file) => {
 
 const clearSelection = () => {
   selectedFiles.value = []
+}
+
+// 全选/取消全选
+const toggleSelectAll = () => {
+  if (selectedFiles.value.length === fileList.value.length) {
+    // 当前是全选状态,取消全选
+    clearSelection()
+  } else {
+    // 全选所有文件
+    selectedFiles.value = [...fileList.value]
+  }
+}
+
+// 点击文件卡片 -> 直接打开文件夹或下载文件
+const handleFileClick = (file) => {
+  if (file.isDirectory) {
+    // 点击文件夹 -> 进入文件夹
+    navigateInto(file.name)
+  } 
 }
 
 // 下载单个文件或文件夹
