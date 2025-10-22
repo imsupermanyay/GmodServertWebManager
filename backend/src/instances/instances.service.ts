@@ -596,76 +596,8 @@ export class InstancesService {
       throw new ConflictException('实例没有关联的 Docker 容器');
     }
 
-    // 获取最近两次操作记录（一次开机和一次关机）
-    const recentActionLogs = await this.actionLogsRepository.find({
-      where: { instanceId: instance.id },
-      order: { createdAt: 'DESC' },
-      take: 2,
-    });
-
-    // 尝试获取容器日志
-    let containerLogs = '';
-    let cursor: number | null = null;
-
-    try {
-      const result = await this.dockerService.getContainerLogs(instance.dockerId, { since });
-      containerLogs = result.logs;
-      cursor = result.cursor;
-    } catch (error) {
-      // 容器可能已停止，无法获取日志，仅返回操作历史
-      console.log(`获取容器日志失败 (实例 ${id}):`, error.message);
-    }
-
-    // 构建日志标记
-    let logHeader = '';
-    if (recentActionLogs.length > 0) {
-      // 如果最近的操作是 START，显示开机标记
-      if (recentActionLogs[0].action === InstanceAction.START) {
-        const startTime = new Date(recentActionLogs[0].createdAt).toLocaleString('zh-CN', {
-          timeZone: 'Asia/Shanghai',
-          hour12: false
-        });
-
-        // 如果之前有关机记录，先显示上一次的关机
-        if (recentActionLogs.length > 1 && recentActionLogs[1].action === InstanceAction.STOP) {
-          const lastStopTime = new Date(recentActionLogs[1].createdAt).toLocaleString('zh-CN', {
-            timeZone: 'Asia/Shanghai',
-            hour12: false
-          });
-          logHeader = `========== 实例已停止 (${lastStopTime}) ==========\n\n`;
-        }
-
-        logHeader += `========== 实例已开机 (${startTime}) ==========\n\n`;
-      }
-      // 如果最近的操作是 STOP，显示关机标记，并且如果之前有开机记录也显示
-      else if (recentActionLogs[0].action === InstanceAction.STOP) {
-        const stopTime = new Date(recentActionLogs[0].createdAt).toLocaleString('zh-CN', {
-          timeZone: 'Asia/Shanghai',
-          hour12: false
-        });
-
-        // 如果有上一次的开机记录，先显示开机，再显示关机
-        if (recentActionLogs.length > 1 && recentActionLogs[1].action === InstanceAction.START) {
-          const startTime = new Date(recentActionLogs[1].createdAt).toLocaleString('zh-CN', {
-            timeZone: 'Asia/Shanghai',
-            hour12: false
-          });
-          logHeader = `========== 实例已开机 (${startTime}) ==========\n\n`;
-        }
-
-        // 在日志末尾添加关机标记（如果有容器日志的话）
-        if (containerLogs) {
-          containerLogs += `\n\n========== 实例已停止 (${stopTime}) ==========`;
-        } else {
-          logHeader += `========== 实例已停止 (${stopTime}) ==========\n\n`;
-        }
-      }
-    }
-
-    return {
-      logs: logHeader + containerLogs,
-      cursor,
-    };
+    // 直接返回容器日志，不添加任何标记
+    return this.dockerService.getContainerLogs(instance.dockerId, { since });
   }
 
   async getMyInstances(userId: number): Promise<Instance[]> {

@@ -812,6 +812,8 @@ let logsSocket = null
 let socketReconnectTimer = null
 let hasActiveSubscription = false
 let containerStartTime = null // 容器启动时间（毫秒时间戳）
+let startMarker = '' // 开机标记
+const STOP_MARKER = '\n\n========== 实例已停止 =========='
 
 const containerInfo = computed(() => instanceData.value?.containerInfo || null)
 const detailStats = computed(() => containerInfo.value?.stats || null)
@@ -1069,34 +1071,45 @@ const loadDetail = async (reset = false) => {
     const justStopped = wasRunning && !isRunning
 
     if (justStarted) {
-      // 容器刚启动，记录启动时间，清空日志和游标
+      // 容器刚启动，记录启动时间
       containerStartTime = Date.now()
-      detailLogs.value = ''
+      const now = new Date()
+      const timeStr = now.toLocaleString('zh-CN', { hour12: false })
+      startMarker = `========== 实例已开机 (${timeStr}) ==========\n\n`
+
+      // 清空日志，设置开机标记
+      detailLogs.value = startMarker
       logCursor.value = null
-      console.log('[开机] 检测到容器启动，清空日志，记录启动时间:', containerStartTime)
+      console.log('[开机] 检测到容器启动，添加开机标记')
     } else if (justStopped) {
-      // 容器刚停止
-      console.log('[关机] 检测到容器停止')
+      // 容器刚停止，在日志末尾添加停止标记
+      console.log('[关机] 检测到容器停止，添加停止标记')
+      if (detailLogs.value && !detailLogs.value.includes('实例已停止')) {
+        detailLogs.value += STOP_MARKER
+      }
       containerStartTime = null
     }
 
     instanceData.value = newInstanceData
 
-    // 获取日志的条件：
-    // 1. 容器运行中 + (刚启动 或 非实时模式 或 WebSocket未连接)
-    // 2. 容器刚停止（需要获取包含停止标记的日志）
-    const shouldFetchLogs = (isRunning && (justStarted || !useRealtimeLogs.value || !socketConnected.value)) || justStopped
+    // 只在容器运行且刚启动时获取日志
+    const shouldFetchLogs = isRunning && (justStarted || !useRealtimeLogs.value || !socketConnected.value)
 
     if (shouldFetchLogs) {
-      const useCursor = !reset && !justStarted && !justStopped && logCursor.value !== null
+      const useCursor = !reset && !justStarted && logCursor.value !== null
       const logParams = useCursor ? { since: logCursor.value } : undefined
-
 
       const logsResponse = await instancesAPI.getLogs(props.id, logParams)
 
-      
-      const shouldResetLogs = !useCursor
-      applyLogsPayload(logsResponse.data, shouldResetLogs)
+      if (justStarted) {
+        // 刚启动时，追加日志到开机标记后面
+        detailLogs.value = startMarker + (logsResponse.data?.logs || '')
+      } else {
+        // 正常追加日志
+        const shouldResetLogs = !useCursor
+        applyLogsPayload(logsResponse.data, shouldResetLogs)
+      }
+
       scrollConsoleToBottom()
     }
   } catch (error) {
@@ -1135,18 +1148,21 @@ const refreshLogs = async (reset = false) => {
     logCursor.value = null
   }
 
-  const useCursor = !reset && logCursor.value !== null
-  const logParams = useCursor ? { since: logCursor.value } : undefined
-
-  console.log('[刷新] reset:', reset, 'logCursor:', logCursor.value, 'useCursor:', useCursor, 'logParams:', logParams)
+  console.log('[刷新] reset:', reset, 'startMarker:', startMarker)
 
   try {
-    const response = await instancesAPI.getLogs(props.id, logParams)
-    console.log('[刷新响应] logs长度:', response.data?.logs?.length, 'cursor:', response.data?.cursor)
-    
+    // 重新获取完整日志
+    const response = await instancesAPI.getLogs(props.id)
+    console.log('[刷新响应] logs长度:', response.data?.logs?.length)
 
-    const shouldResetLogs = !useCursor
-    applyLogsPayload(response.data, shouldResetLogs)
+    // 刷新时，保持开机标记，只更新后面的日志内容
+    if (startMarker) {
+      detailLogs.value = startMarker + (response.data?.logs || '')
+    } else {
+      detailLogs.value = response.data?.logs || ''
+    }
+
+    logCursor.value = response.data?.cursor || null
     scrollConsoleToBottom()
   } catch (error) {
     notifications.error(
@@ -1245,6 +1261,11 @@ const stopInstance = async () => {
   showScreenOverlay.value = true
   containerActionLoading.value = true
   try {
+    // 在关机前添加停止标记
+    if (detailLogs.value && !detailLogs.value.includes('实例已停止')) {
+      detailLogs.value += STOP_MARKER
+    }
+
     await instancesAPI.stop(props.id)
     notifications.success('实例已停止')
 
