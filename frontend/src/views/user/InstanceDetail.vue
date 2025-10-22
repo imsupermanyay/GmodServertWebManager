@@ -64,6 +64,14 @@
           >
             文件管理
           </button>
+          <button
+            @click="openSyncLogsDialog"
+            :disabled="!instanceData || !instanceData.gamemodeName"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-cyan-400/40 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 hover:border-cyan-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+            :title="!instanceData?.gamemodeName ? '此实例未关联游戏模式' : ''"
+          >
+            同步模式文件
+          </button>
         </div>
         <div class="flex flex-wrap gap-2">
           <button
@@ -591,6 +599,146 @@
         </div>
       </div>
     </div>
+
+    <!-- 同步日志对话框 -->
+    <div
+      v-if="showSyncLogsDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      @click.self="showSyncLogsDialog = false"
+    >
+      <div class="bg-slate-800 rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col border border-slate-700">
+        <!-- 对话框头部 -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+          <div>
+            <h2 class="text-xl font-semibold text-white">同步模式文件</h2>
+            <p class="text-sm text-slate-400 mt-1">模式: {{ instanceData?.gamemodeName }}</p>
+          </div>
+          <button
+            @click="showSyncLogsDialog = false"
+            class="text-slate-400 hover:text-white transition"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- 触发同步按钮 -->
+        <div class="px-6 py-4 border-b border-slate-700 bg-slate-750">
+          <button
+            @click="triggerModeSync"
+            :disabled="syncLoading"
+            class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
+          >
+            <svg v-if="syncLoading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            {{ syncLoading ? '同步中...' : '立即同步' }}
+          </button>
+        </div>
+
+        <!-- 日志列表 -->
+        <div class="flex-1 overflow-y-auto px-6 py-4">
+          <div v-if="loadingSyncLogs" class="text-center py-8 text-slate-400">
+            加载日志中...
+          </div>
+          <div v-else-if="syncLogs.length === 0" class="text-center py-8 text-slate-400">
+            暂无同步日志
+          </div>
+          <div v-else class="space-y-3">
+            <div
+              v-for="log in syncLogs"
+              :key="log.id"
+              class="bg-slate-700/50 rounded-lg p-4 border border-slate-600 hover:border-slate-500 transition"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-3 mb-2">
+                    <span
+                      :class="{
+                        'bg-green-500/20 text-green-300 border-green-500/30': log.status === 'success',
+                        'bg-red-500/20 text-red-300 border-red-500/30': log.status === 'failed',
+                        'bg-yellow-500/20 text-yellow-300 border-yellow-500/30': log.status === 'in_progress'
+                      }"
+                      class="px-2 py-1 text-xs font-semibold rounded border"
+                    >
+                      {{ getStatusText(log.status) }}
+                    </span>
+                    <span
+                      :class="{
+                        'bg-purple-500/20 text-purple-300 border-purple-500/30': log.isManualSync,
+                        'bg-slate-600/50 text-slate-300 border-slate-500/30': !log.isManualSync
+                      }"
+                      class="px-2 py-1 text-xs font-semibold rounded border"
+                    >
+                      {{ log.isManualSync ? '手动同步' : '自动同步' }}
+                    </span>
+                    <span class="text-xs text-slate-400">
+                      ID: {{ log.id }}
+                    </span>
+                  </div>
+                  <p class="text-sm text-white mb-1">{{ log.message }}</p>
+                  <p class="text-xs text-slate-400">
+                    开始: {{ formatDate(log.createdAt) }}
+                    <span v-if="log.completedAt" class="ml-3">
+                      完成: {{ formatDate(log.completedAt) }}
+                    </span>
+                  </p>
+                  <div v-if="log.errorDetails" class="mt-2">
+                    <button
+                      @click="toggleErrorDetails(log.id)"
+                      class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {{ expandedErrors.has(log.id) ? '隐藏错误详情' : '查看错误详情' }}
+                    </button>
+                    <pre
+                      v-if="expandedErrors.has(log.id)"
+                      class="mt-2 p-3 bg-slate-900 rounded text-xs text-red-400 overflow-x-auto border border-red-500/30"
+                    >{{ log.errorDetails }}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 分页 -->
+        <div v-if="syncLogsTotalPages > 1" class="px-6 py-4 border-t border-slate-700 flex items-center justify-between">
+          <div class="text-sm text-slate-400">
+            第 {{ syncLogsCurrentPage }} / {{ syncLogsTotalPages }} 页，共 {{ syncLogsTotal }} 条
+          </div>
+          <div class="flex gap-2">
+            <button
+              @click="loadSyncLogs(syncLogsCurrentPage - 1)"
+              :disabled="syncLogsCurrentPage === 1 || loadingSyncLogs"
+              class="px-3 py-1 text-sm rounded bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              上一页
+            </button>
+            <button
+              @click="loadSyncLogs(syncLogsCurrentPage + 1)"
+              :disabled="syncLogsCurrentPage === syncLogsTotalPages || loadingSyncLogs"
+              class="px-3 py-1 text-sm rounded bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              下一页
+            </button>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-slate-700 flex justify-end">
+          <button
+            @click="showSyncLogsDialog = false"
+            class="px-5 py-2 text-sm font-medium rounded-lg border border-slate-500/40 bg-slate-700/30 text-slate-200 hover:bg-slate-700/50 hover:border-slate-400/60 transition"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -598,7 +746,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { io } from 'socket.io-client'
-import { instancesAPI, cfgTemplatesAPI, startupOptionsAPI } from '../../api'
+import { instancesAPI, cfgTemplatesAPI, startupOptionsAPI, syncAPI } from '../../api'
 import { useNotificationStore } from '../../stores/notifications'
 import { useAuthStore } from '../../stores/auth'
 
@@ -642,6 +790,14 @@ const showScreenOverlay = ref(false)
 const screenOverlayMessage = ref('')
 const useRealtimeLogs = ref(hasRealtimeToken)
 const socketConnected = ref(false)
+const showSyncLogsDialog = ref(false)
+const syncLogs = ref([])
+const loadingSyncLogs = ref(false)
+const syncLoading = ref(false)
+const syncLogsCurrentPage = ref(1)
+const syncLogsTotal = ref(0)
+const syncLogsTotalPages = ref(0)
+const expandedErrors = ref(new Set())
 
 const consoleRef = ref(null)
 let refreshTimer = null
@@ -1601,6 +1757,95 @@ const deleteSelected = async () => {
 
   clearSelection()
   await loadFiles()
+}
+
+// 打开同步日志对话框
+const openSyncLogsDialog = async () => {
+  if (!instanceData.value?.gamemodeName) {
+    notifications.warning('此实例未关联游戏模式')
+    return
+  }
+  showSyncLogsDialog.value = true
+  await loadSyncLogs()
+}
+
+// 加载同步日志
+const loadSyncLogs = async (page = 1) => {
+  if (!instanceData.value?.gamemodeName) return
+
+  loadingSyncLogs.value = true
+  try {
+    const response = await syncAPI.getSyncLogs({
+      page,
+      limit: 20,
+      gamemodeName: instanceData.value.gamemodeName
+    })
+    syncLogs.value = response.data.logs
+    syncLogsTotal.value = response.data.total
+    syncLogsTotalPages.value = response.data.totalPages
+    syncLogsCurrentPage.value = page
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '加载同步日志失败',
+      { title: '同步日志' }
+    )
+  } finally {
+    loadingSyncLogs.value = false
+  }
+}
+
+// 触发模式同步
+const triggerModeSync = async () => {
+  if (!instanceData.value?.gamemodeName) return
+
+  syncLoading.value = true
+  try {
+    await syncAPI.manualSync(instanceData.value.gamemodeName)
+    notifications.success('同步任务已加入队列，请稍后查看日志', { title: '同步' })
+    // 3秒后刷新日志
+    setTimeout(() => {
+      loadSyncLogs(syncLogsCurrentPage.value)
+    }, 3000)
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '触发同步失败',
+      { title: '同步' }
+    )
+  } finally {
+    syncLoading.value = false
+  }
+}
+
+// 切换错误详情显示
+const toggleErrorDetails = (logId) => {
+  if (expandedErrors.value.has(logId)) {
+    expandedErrors.value.delete(logId)
+  } else {
+    expandedErrors.value.add(logId)
+  }
+}
+
+// 获取状态文本
+const getStatusText = (status) => {
+  const statusMap = {
+    success: '成功',
+    failed: '失败',
+    in_progress: '进行中'
+  }
+  return statusMap[status] || status
+}
+
+// 格式化日期
+const formatDate = (dateString) => {
+  const date = new Date(dateString)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
 }
 
 onMounted(() => {

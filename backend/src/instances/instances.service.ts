@@ -273,7 +273,7 @@ export class InstancesService {
     });
   }
 
-  async findOne(id: number, userId?: number, userRole?: UserRole): Promise<Instance> {
+  async findOne(id: number, userId?: number, userRole?: UserRole): Promise<any> {
     const instance = await this.instancesRepository.findOne({
       where: { id },
       relations: ['admin'],
@@ -288,7 +288,19 @@ export class InstancesService {
       throw new ForbiddenException('无权访问此实例');
     }
 
-    return instance;
+    // 如果有 gamemodeId，获取 gamemode 名称
+    let gamemodeName = null;
+    if (instance.gamemodeId) {
+      const gamemode = await this.gamemodesRepository.findOne({
+        where: { id: instance.gamemodeId },
+      });
+      gamemodeName = gamemode?.name || null;
+    }
+
+    return {
+      ...instance,
+      gamemodeName,
+    };
   }
 
   async update(id: number, updateInstanceDto: UpdateInstanceDto, userId?: number, userRole?: UserRole): Promise<Instance> {
