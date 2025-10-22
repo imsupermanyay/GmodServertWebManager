@@ -625,7 +625,17 @@ export class InstancesService {
           timeZone: 'Asia/Shanghai',
           hour12: false
         });
-        logHeader = `========== 实例已开机 (${startTime}) ==========\n\n`;
+
+        // 如果之前有关机记录，先显示上一次的关机
+        if (recentActionLogs.length > 1 && recentActionLogs[1].action === InstanceAction.STOP) {
+          const lastStopTime = new Date(recentActionLogs[1].createdAt).toLocaleString('zh-CN', {
+            timeZone: 'Asia/Shanghai',
+            hour12: false
+          });
+          logHeader = `========== 实例已停止 (${lastStopTime}) ==========\n\n`;
+        }
+
+        logHeader += `========== 实例已开机 (${startTime}) ==========\n\n`;
       }
       // 如果最近的操作是 STOP，显示关机标记，并且如果之前有开机记录也显示
       else if (recentActionLogs[0].action === InstanceAction.STOP) {
