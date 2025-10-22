@@ -25,6 +25,10 @@ export class UpdateInstanceDto {
   @IsOptional()
   startupOptionId?: number;
 
+  @IsNumber()
+  @IsOptional()
+  gamemodeId?: number;
+
   @IsString()
   @IsOptional()
   customCfg?: string;
