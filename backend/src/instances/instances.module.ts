@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { InstancesService } from './instances.service';
 import { InstancesController } from './instances.controller';
 import { Instance } from './entities/instance.entity';
+import { InstanceActionLog } from './entities/instance-action-log.entity';
 import { DockerService } from './docker.service';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
@@ -13,7 +14,7 @@ import { InstancesGateway } from './instances.gateway';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Instance, CfgTemplate, StartupOption, Gamemode]),
+    TypeOrmModule.forFeature([Instance, InstanceActionLog, CfgTemplate, StartupOption, Gamemode]),
     AuthModule,
     UsersModule,
   ],

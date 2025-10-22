@@ -2,6 +2,7 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Instance } from './entities/instance.entity';
+import { InstanceActionLog, InstanceAction } from './entities/instance-action-log.entity';
 import { CreateInstanceDto } from './dto/create-instance.dto';
 import { UpdateInstanceDto } from './dto/update-instance.dto';
 import { DockerService } from './docker.service';
@@ -19,6 +20,8 @@ export class InstancesService {
   constructor(
     @InjectRepository(Instance)
     private instancesRepository: Repository<Instance>,
+    @InjectRepository(InstanceActionLog)
+    private actionLogsRepository: Repository<InstanceActionLog>,
     @InjectRepository(CfgTemplate)
     private cfgTemplatesRepository: Repository<CfgTemplate>,
     @InjectRepository(StartupOption)
@@ -412,7 +415,6 @@ export class InstancesService {
       throw new ConflictException('实例没有关联到启动项！');
     }
 
-
     await this.dockerService.writeFileToContainer(
       instance.dockerId,
       '/opt/steam/startup.args',
@@ -420,6 +422,12 @@ export class InstancesService {
     );
     await this.dockerService.startContainer(instance.dockerId);
     instance.status = InstanceStatus.RUNNING;
+
+    // 记录开机操作
+    await this.actionLogsRepository.save({
+      instanceId: instance.id,
+      action: InstanceAction.START,
+    });
 
     return this.instancesRepository.save(instance);
   }
@@ -433,6 +441,12 @@ export class InstancesService {
 
     await this.dockerService.stopContainer(instance.dockerId);
     instance.status = InstanceStatus.STOPPED;
+
+    // 记录关机操作
+    await this.actionLogsRepository.save({
+      instanceId: instance.id,
+      action: InstanceAction.STOP,
+    });
 
     return this.instancesRepository.save(instance);
   }
@@ -582,7 +596,36 @@ export class InstancesService {
       throw new ConflictException('实例没有关联的 Docker 容器');
     }
 
-    return this.dockerService.getContainerLogs(instance.dockerId, { since });
+    // 获取容器日志
+    const result = await this.dockerService.getContainerLogs(instance.dockerId, { since });
+
+    // 获取操作历史记录
+    const actionLogs = await this.actionLogsRepository.find({
+      where: { instanceId: instance.id },
+      order: { createdAt: 'DESC' },
+      take: 10, // 最近10条操作记录
+    });
+
+    // 如果有操作历史，在日志前面插入分隔标记
+    if (actionLogs.length > 0) {
+      let logHeader = '';
+      // 反向遍历，按时间从旧到新显示
+      for (let i = actionLogs.length - 1; i >= 0; i--) {
+        const log = actionLogs[i];
+        const time = new Date(log.createdAt).toLocaleString('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+          hour12: false
+        });
+        if (log.action === InstanceAction.START) {
+          logHeader += `\n========== 实例已开机 (${time}) ==========\n`;
+        } else if (log.action === InstanceAction.STOP) {
+          logHeader += `\n========== 实例已停止 (${time}) ==========\n`;
+        }
+      }
+      result.logs = logHeader + result.logs;
+    }
+
+    return result;
   }
 
   async getMyInstances(userId: number): Promise<Instance[]> {
