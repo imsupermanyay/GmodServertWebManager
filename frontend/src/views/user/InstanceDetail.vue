@@ -28,6 +28,9 @@
             :class="getStatusBadge(instanceData.status)"
           >
             {{ getStatusText(instanceData.status) }}
+            <span class="opacity-80">
+              - {{ instanceData.gamemodeName || '未绑定模式' }}
+            </span>
           </span>
         </div>
         <p class="text-sm text-slate-400">
@@ -1233,20 +1236,16 @@ const startInstance = async () => {
 const stopInstance = async () => {
   if (containerActionLoading.value) return
 
-  const previousLogs = detailLogs.value
-
   screenOverlayMessage.value = '实例正在关机，请稍候...'
   showScreenOverlay.value = true
   containerActionLoading.value = true
   try {
     await instancesAPI.stop(props.id)
     notifications.success('实例已停止')
-    // 显示关机信息
-    detailLogs.value = previousLogs + '\n\n========== 实例已停止 =========='
+    // 停止消息已由后端写入日志，这里只需重新加载
     logCursor.value = null
     await loadDetail(true)
   } catch (error) {
-    detailLogs.value = previousLogs
     console.log(error.response)
     notifications.error(
       error.response?.data?.message ,
