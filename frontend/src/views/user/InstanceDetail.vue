@@ -663,7 +663,7 @@
                       }"
                       class="px-2 py-1 text-xs font-semibold rounded border"
                     >
-                      {{ getStatusText(log.status) }}
+                      {{ getSyncStatusText(log.status) }}
                     </span>
                     <span
                       :class="{
@@ -680,9 +680,9 @@
                   </div>
                   <p class="text-sm text-white mb-1">{{ log.message }}</p>
                   <p class="text-xs text-slate-400">
-                    开始: {{ formatDate(log.createdAt) }}
+                    开始: {{ formatSyncDate(log.createdAt) }}
                     <span v-if="log.completedAt" class="ml-3">
-                      完成: {{ formatDate(log.completedAt) }}
+                      完成: {{ formatSyncDate(log.completedAt) }}
                     </span>
                   </p>
                   <div v-if="log.errorDetails" class="mt-2">
@@ -1825,8 +1825,8 @@ const toggleErrorDetails = (logId) => {
   }
 }
 
-// 获取状态文本
-const getStatusText = (status) => {
+// 获取同步状态文本
+const getSyncStatusText = (status) => {
   const statusMap = {
     success: '成功',
     failed: '失败',
@@ -1835,8 +1835,8 @@ const getStatusText = (status) => {
   return statusMap[status] || status
 }
 
-// 格式化日期
-const formatDate = (dateString) => {
+// 格式化同步日期
+const formatSyncDate = (dateString) => {
   const date = new Date(dateString)
   return date.toLocaleString('zh-CN', {
     year: 'numeric',
