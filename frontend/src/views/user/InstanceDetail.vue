@@ -812,6 +812,7 @@ let logsSocket = null
 let socketReconnectTimer = null
 let hasActiveSubscription = false
 let containerStartTime = null // 容器启动时间（毫秒时间戳）
+let lastStopMessage = '' // 保存上次停止时的消息
 
 const containerInfo = computed(() => instanceData.value?.containerInfo || null)
 const detailStats = computed(() => containerInfo.value?.stats || null)
@@ -1065,11 +1066,11 @@ const loadDetail = async (reset = false) => {
     // 检测容器是否重启（从停止到运行）
     const justStarted = !wasRunning && isRunning
     if (justStarted) {
-      // 容器刚启动，记录启动时间并清空日志
+      // 容器刚启动，记录启动时间
       containerStartTime = Date.now()
-      detailLogs.value = ''
       logCursor.value = null
-      console.log('[开机] 检测到容器启动，清空日志，记录启动时间:', containerStartTime)
+      console.log('[开机] 检测到容器启动，记录启动时间:', containerStartTime)
+      // 注意：不在这里清空日志，而是在获取新日志后处理
     } else if (wasRunning && !isRunning) {
       // 容器刚停止
       console.log('[关机] 检测到容器停止')
@@ -1091,8 +1092,19 @@ const loadDetail = async (reset = false) => {
       const logsResponse = await instancesAPI.getLogs(props.id, logParams)
       console.log('[loadDetail响应] logs长度:', logsResponse.data?.logs?.length, 'cursor:', logsResponse.data?.cursor)
 
-      const shouldResetLogs = !useCursor
-      applyLogsPayload(logsResponse.data, shouldResetLogs)
+      if (justStarted) {
+        // 刚启动时，先显示上次的停止消息（如果有），然后显示新日志
+        if (lastStopMessage) {
+          detailLogs.value = lastStopMessage + '\n\n' + (logsResponse.data?.logs || '')
+          lastStopMessage = '' // 清空已使用的停止消息
+        } else {
+          detailLogs.value = logsResponse.data?.logs || ''
+        }
+        logCursor.value = logsResponse.data?.cursor || null
+      } else {
+        const shouldResetLogs = !useCursor
+        applyLogsPayload(logsResponse.data, shouldResetLogs)
+      }
       scrollConsoleToBottom()
     }
   } catch (error) {
@@ -1242,7 +1254,12 @@ const stopInstance = async () => {
   try {
     await instancesAPI.stop(props.id)
     notifications.success('实例已停止')
-    // 停止消息已由后端写入日志，这里只需重新加载
+
+    // 保存停止消息，并显示在日志中
+    const stopMsg = '\n\n========== 实例已停止 =========='
+    lastStopMessage = detailLogs.value + stopMsg
+    detailLogs.value = lastStopMessage
+
     logCursor.value = null
     await loadDetail(true)
   } catch (error) {

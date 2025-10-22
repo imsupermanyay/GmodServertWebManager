@@ -74,15 +74,6 @@ export class DockerService {
     try {
       const container = this.docker.getContainer(dockerId);
       console.log('停止容器开始:')
-
-      // 在停止前输出停止消息到容器日志
-      try {
-        await this.execCommand(dockerId, 'echo "========== 实例已停止 =========="', { detach: false });
-      } catch (echoError) {
-        // 如果输出消息失败，不影响停止操作，只记录错误
-        console.log('输出停止消息失败:', echoError.message);
-      }
-
       await container.stop();
       console.log('停止容器结束:')
     } catch (error) {
