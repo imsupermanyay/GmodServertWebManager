@@ -131,7 +131,7 @@ export class InstancesController {
   uploadFile(
     @Param('id') id: string,
     @Query('path') path: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
     @Request() req
   ) {
     return this.instancesService.uploadFile(+id, path || '', file, req.user.id, req.user.role);

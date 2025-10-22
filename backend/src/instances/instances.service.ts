@@ -690,6 +690,18 @@ export class InstancesService {
   }
 
   // 文件管理相关方法
+  private async checkPermission(instanceId: number, userId: number, userRole: UserRole): Promise<void> {
+    const instance = await this.instancesRepository.findOne({ where: { id: instanceId } });
+    if (!instance) {
+      throw new NotFoundException('实例不存在');
+    }
+
+    // 普通管理员只能访问自己的实例
+    if (userRole === UserRole.ADMIN && instance.adminId !== userId) {
+      throw new ForbiddenException('无权访问此实例');
+    }
+  }
+
   private async getGamemodeBuildDir(instanceId: number): Promise<string> {
     const instance = await this.instancesRepository.findOne({ where: { id: instanceId } });
     if (!instance) {
@@ -746,7 +758,7 @@ export class InstancesService {
   async uploadFile(
     instanceId: number,
     relativePath: string,
-    file: Express.Multer.File,
+    file: any,
     userId: number,
     userRole: UserRole
   ) {
