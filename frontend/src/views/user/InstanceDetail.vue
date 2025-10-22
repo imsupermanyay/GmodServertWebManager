@@ -1062,15 +1062,17 @@ const loadDetail = async (reset = false) => {
     const wasRunning = instanceData.value?.status === 'RUNNING'
     const isRunning = newInstanceData?.status === 'RUNNING'
 
-    // 检测容器是否重启（从停止到运行）
+    // 检测容器是否重启（从停止到运行，或从运行到停止）
     const justStarted = !wasRunning && isRunning
+    const justStopped = wasRunning && !isRunning
+
     if (justStarted) {
       // 容器刚启动，记录启动时间，清空日志和游标
       containerStartTime = Date.now()
       detailLogs.value = ''
       logCursor.value = null
       console.log('[开机] 检测到容器启动，清空日志，记录启动时间:', containerStartTime)
-    } else if (wasRunning && !isRunning) {
+    } else if (justStopped) {
       // 容器刚停止
       console.log('[关机] 检测到容器停止')
       containerStartTime = null
@@ -1078,15 +1080,16 @@ const loadDetail = async (reset = false) => {
 
     instanceData.value = newInstanceData
 
-    // 只有在容器运行时才获取日志
-    // 如果刚启动，强制获取日志；否则只在非实时模式或 WebSocket 未连接时获取
-    const shouldFetchLogs = isRunning && (justStarted || !useRealtimeLogs.value || !socketConnected.value)
+    // 获取日志的条件：
+    // 1. 容器运行中 + (刚启动 或 非实时模式 或 WebSocket未连接)
+    // 2. 容器刚停止（需要获取包含停止标记的日志）
+    const shouldFetchLogs = (isRunning && (justStarted || !useRealtimeLogs.value || !socketConnected.value)) || justStopped
 
     if (shouldFetchLogs) {
-      const useCursor = !reset && !justStarted && logCursor.value !== null
+      const useCursor = !reset && !justStarted && !justStopped && logCursor.value !== null
       const logParams = useCursor ? { since: logCursor.value } : undefined
 
-      console.log('[loadDetail] reset:', reset, 'justStarted:', justStarted, 'isRunning:', isRunning, 'logCursor:', logCursor.value, 'useCursor:', useCursor, 'logParams:', logParams)
+      console.log('[loadDetail] reset:', reset, 'justStarted:', justStarted, 'justStopped:', justStopped, 'isRunning:', isRunning, 'logCursor:', logCursor.value, 'useCursor:', useCursor, 'logParams:', logParams)
 
       const logsResponse = await instancesAPI.getLogs(props.id, logParams)
       console.log('[loadDetail响应] logs长度:', logsResponse.data?.logs?.length, 'cursor:', logsResponse.data?.cursor)

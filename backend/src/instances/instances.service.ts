@@ -596,9 +596,6 @@ export class InstancesService {
       throw new ConflictException('实例没有关联的 Docker 容器');
     }
 
-    // 获取容器日志
-    const result = await this.dockerService.getContainerLogs(instance.dockerId, { since });
-
     // 获取操作历史记录
     const actionLogs = await this.actionLogsRepository.find({
       where: { instanceId: instance.id },
@@ -606,9 +603,9 @@ export class InstancesService {
       take: 10, // 最近10条操作记录
     });
 
-    // 如果有操作历史，在日志前面插入分隔标记
+    // 构建操作历史标记
+    let logHeader = '';
     if (actionLogs.length > 0) {
-      let logHeader = '';
       // 反向遍历，按时间从旧到新显示
       for (let i = actionLogs.length - 1; i >= 0; i--) {
         const log = actionLogs[i];
@@ -622,10 +619,25 @@ export class InstancesService {
           logHeader += `\n========== 实例已停止 (${time}) ==========\n`;
         }
       }
-      result.logs = logHeader + result.logs;
     }
 
-    return result;
+    // 尝试获取容器日志
+    let containerLogs = '';
+    let cursor: number | null = null;
+
+    try {
+      const result = await this.dockerService.getContainerLogs(instance.dockerId, { since });
+      containerLogs = result.logs;
+      cursor = result.cursor;
+    } catch (error) {
+      // 容器可能已停止，无法获取日志，仅返回操作历史
+      console.log(`获取容器日志失败 (实例 ${id}):`, error.message);
+    }
+
+    return {
+      logs: logHeader + containerLogs,
+      cursor,
+    };
   }
 
   async getMyInstances(userId: number): Promise<Instance[]> {
