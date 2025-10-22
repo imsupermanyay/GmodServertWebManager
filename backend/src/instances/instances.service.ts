@@ -2,7 +2,6 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Instance } from './entities/instance.entity';
-import { InstanceActionLog, InstanceAction } from './entities/instance-action-log.entity';
 import { CreateInstanceDto } from './dto/create-instance.dto';
 import { UpdateInstanceDto } from './dto/update-instance.dto';
 import { DockerService } from './docker.service';
@@ -20,8 +19,6 @@ export class InstancesService {
   constructor(
     @InjectRepository(Instance)
     private instancesRepository: Repository<Instance>,
-    @InjectRepository(InstanceActionLog)
-    private actionLogsRepository: Repository<InstanceActionLog>,
     @InjectRepository(CfgTemplate)
     private cfgTemplatesRepository: Repository<CfgTemplate>,
     @InjectRepository(StartupOption)
@@ -423,12 +420,6 @@ export class InstancesService {
     await this.dockerService.startContainer(instance.dockerId);
     instance.status = InstanceStatus.RUNNING;
 
-    // 记录开机操作
-    await this.actionLogsRepository.save({
-      instanceId: instance.id,
-      action: InstanceAction.START,
-    });
-
     return this.instancesRepository.save(instance);
   }
 
@@ -441,12 +432,6 @@ export class InstancesService {
 
     await this.dockerService.stopContainer(instance.dockerId);
     instance.status = InstanceStatus.STOPPED;
-
-    // 记录关机操作
-    await this.actionLogsRepository.save({
-      instanceId: instance.id,
-      action: InstanceAction.STOP,
-    });
 
     return this.instancesRepository.save(instance);
   }
