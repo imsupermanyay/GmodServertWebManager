@@ -29,21 +29,39 @@ if [[ -n "${START_VALUE}" ]]; then
 
   printf '[start-server] 检测到 StartValue，准备启动服务器\n'
 
-  # 创建命名管道用于接收命令
-  FIFO_PATH="${STEAMAPP_DIR}/garrysmod/servercmd.fifo"
-  mkdir -p "$(dirname "${FIFO_PATH}")"
+  # 使用 screen 在后台运行服务器
+  SESSION_NAME="gmod-server"
 
-  if [[ ! -p "${FIFO_PATH}" ]]; then
-    mkfifo "${FIFO_PATH}"
-    printf '[start-server] 创建命令管道: %s\n' "${FIFO_PATH}"
+  # 确保 screen 已安装
+  if ! command -v screen &> /dev/null; then
+    printf '[start-server] 正在安装 screen...\n'
+    apt-get update && apt-get install -y screen
   fi
 
-  # 启动服务器并将 FIFO 重定向到标准输入
+  # 启动服务器在 screen 会话中
   if [[ "$(id -u)" -eq 0 ]]; then
-    exec gosu "${STEAM_USER}" bash -lc "cd \"${STEAMAPP_DIR}\" && tail -f \"${FIFO_PATH}\" | ./srcds_run ${START_VALUE}"
+    gosu "${STEAM_USER}" bash -lc "cd \"${STEAMAPP_DIR}\" && screen -dmS ${SESSION_NAME} ./srcds_run ${START_VALUE}"
   else
-    exec bash -lc "cd \"${STEAMAPP_DIR}\" && tail -f \"${FIFO_PATH}\" | ./srcds_run ${START_VALUE}"
+    bash -lc "cd \"${STEAMAPP_DIR}\" && screen -dmS ${SESSION_NAME} ./srcds_run ${START_VALUE}"
   fi
+
+  printf '[start-server] 服务器已在 screen 会话中启动: %s\n' "${SESSION_NAME}"
+
+  # 设置 screen 的日志文件
+  LOG_FILE="${STEAMAPP_DIR}/screen.log"
+
+  # 启用 screen 的日志记录
+  if [[ "$(id -u)" -eq 0 ]]; then
+    gosu "${STEAM_USER}" screen -S ${SESSION_NAME} -X logfile "${LOG_FILE}"
+    gosu "${STEAM_USER}" screen -S ${SESSION_NAME} -X log on
+  else
+    screen -S ${SESSION_NAME} -X logfile "${LOG_FILE}"
+    screen -S ${SESSION_NAME} -X log on
+  fi
+
+  # 持续输出日志文件内容
+  touch "${LOG_FILE}"
+  exec tail -f "${LOG_FILE}"
 fi
 
 printf '[start-server] 服务已完成启动\n'

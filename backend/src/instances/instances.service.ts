@@ -651,24 +651,30 @@ export class InstancesService {
       throw new ConflictException('无法检测服务器状态');
     }
 
-    // 通过命名管道发送命令到 GMOD 服务器
-    const fifoPath = '/opt/steam/garrysmod/servercmd.fifo';
+    // 通过 screen 发送命令到 GMOD 服务器
+    const sessionName = 'gmod-server';
     try {
-      // 检查 FIFO 是否存在
-      const checkFifo = await this.dockerService.execCommand(
+      // 检查 screen 会话是否存在
+      const checkSession = await this.dockerService.execCommand(
         instance.dockerId,
-        `test -p ${fifoPath} && echo "exists" || echo "not_exists"`,
+        `screen -ls | grep -q "${sessionName}" && echo "exists" || echo "not_exists"`,
         { detach: false }
       );
 
-      if (!checkFifo.output?.trim().includes('exists')) {
-        throw new ConflictException('命令管道不存在，请重启服务器实例');
+      if (!checkSession.output?.trim().includes('exists')) {
+        throw new ConflictException('服务器会话不存在，请重启服务器实例');
       }
 
-      // 向 FIFO 写入命令（命令会被传递到 srcds_run 的标准输入）
+      // 转义命令中的特殊字符
+      const escapedCommand = command.replace(/"/g, '\\"');
+
+      // 使用 screen -X stuff 发送命令
+      // ^M 是回车键，让命令执行
+      const screenCommand = `screen -S ${sessionName} -X stuff "${escapedCommand}^M"`;
+
       await this.dockerService.execCommand(
         instance.dockerId,
-        `echo "${command.replace(/"/g, '\\"')}" > ${fifoPath}`,
+        screenCommand,
         { detach: false }
       );
 
