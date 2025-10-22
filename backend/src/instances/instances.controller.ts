@@ -178,6 +178,36 @@ export class InstancesController {
     return new StreamableFile(result.stream);
   }
 
+  @Get(':id/files/download-folder')
+  async downloadFolder(
+    @Param('id') id: string,
+    @Query('path') path: string,
+    @Request() req,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const result = await this.instancesService.downloadFolder(+id, path, req.user.id, req.user.role);
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(result.filename)}"`,
+    });
+    return new StreamableFile(result.stream);
+  }
+
+  @Post(':id/files/download-multiple')
+  async downloadMultiple(
+    @Param('id') id: string,
+    @Body() body: { paths: string[] },
+    @Request() req,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const result = await this.instancesService.downloadMultiple(+id, body.paths, req.user.id, req.user.role);
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(result.filename)}"`,
+    });
+    return new StreamableFile(result.stream);
+  }
+
   @Delete(':id/files')
   deleteFile(@Param('id') id: string, @Query('path') path: string, @Request() req) {
     return this.instancesService.deleteFile(+id, path, req.user.id, req.user.role);

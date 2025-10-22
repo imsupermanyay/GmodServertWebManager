@@ -119,6 +119,14 @@ export const instancesAPI = {
     params: { path },
     responseType: 'blob'
   }),
+  downloadFolder: (id, path) => api.get(`/instances/${id}/files/download-folder`, {
+    params: { path },
+    responseType: 'blob'
+  }),
+  downloadMultiple: (id, paths) => api.post(`/instances/${id}/files/download-multiple`,
+    { paths },
+    { responseType: 'blob' }
+  ),
   deleteFile: (id, path) => api.delete(`/instances/${id}/files`, { params: { path } })
 }
 

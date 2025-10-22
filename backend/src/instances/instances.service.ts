@@ -12,6 +12,7 @@ import { InternalServerErrorException, BadRequestException } from '@nestjs/commo
 import { promises as fs, Dirent, createReadStream } from 'fs';
 import * as path from 'path';
 import { Gamemode } from '../gamemodes/entities/gamemode.entity';
+import * as archiver from 'archiver';
 
 @Injectable()
 export class InstancesService {
@@ -836,7 +837,7 @@ export class InstancesService {
     try {
       const stats = await fs.stat(fullPath);
       if (stats.isDirectory()) {
-        throw new BadRequestException('不能下载目录');
+        throw new BadRequestException('不能下载目录，请使用文件夹下载功能');
       }
 
       const filename = path.basename(fullPath);
@@ -847,6 +848,65 @@ export class InstancesService {
         throw new NotFoundException('文件不存在');
       }
       throw new InternalServerErrorException('文件下载失败: ' + error.message);
+    }
+  }
+
+  async downloadFolder(instanceId: number, relativePath: string, userId: number, userRole: UserRole) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    const buildDir = await this.getGamemodeBuildDir(instanceId);
+    const sanitizedPath = this.sanitizePath(relativePath);
+    const fullPath = path.join(buildDir, sanitizedPath);
+
+    try {
+      const stats = await fs.stat(fullPath);
+      if (!stats.isDirectory()) {
+        throw new BadRequestException('只能打包下载目录');
+      }
+
+      const folderName = path.basename(fullPath);
+      const archive = archiver('zip', {
+        zlib: { level: 9 }
+      });
+
+      // 添加整个目录到压缩包
+      archive.directory(fullPath, false);
+      archive.finalize();
+
+      return { stream: archive, filename: `${folderName}.zip` };
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        throw new NotFoundException('文件夹不存在');
+      }
+      throw new InternalServerErrorException('文件夹下载失败: ' + error.message);
+    }
+  }
+
+  async downloadMultiple(instanceId: number, paths: string[], userId: number, userRole: UserRole) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    const buildDir = await this.getGamemodeBuildDir(instanceId);
+    const archive = archiver('zip', {
+      zlib: { level: 9 }
+    });
+
+    try {
+      for (const relativePath of paths) {
+        const sanitizedPath = this.sanitizePath(relativePath);
+        const fullPath = path.join(buildDir, sanitizedPath);
+        const stats = await fs.stat(fullPath);
+
+        if (stats.isDirectory()) {
+          archive.directory(fullPath, path.basename(fullPath));
+        } else {
+          archive.file(fullPath, { name: path.basename(fullPath) });
+        }
+      }
+
+      archive.finalize();
+      return { stream: archive, filename: 'files.zip' };
+    } catch (error) {
+      throw new InternalServerErrorException('批量下载失败: ' + error.message);
     }
   }
 
