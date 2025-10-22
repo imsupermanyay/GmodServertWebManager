@@ -596,30 +596,12 @@ export class InstancesService {
       throw new ConflictException('实例没有关联的 Docker 容器');
     }
 
-    // 获取操作历史记录
-    const actionLogs = await this.actionLogsRepository.find({
+    // 获取最近两次操作记录（一次开机和一次关机）
+    const recentActionLogs = await this.actionLogsRepository.find({
       where: { instanceId: instance.id },
       order: { createdAt: 'DESC' },
-      take: 10, // 最近10条操作记录
+      take: 2,
     });
-
-    // 构建操作历史标记
-    let logHeader = '';
-    if (actionLogs.length > 0) {
-      // 反向遍历，按时间从旧到新显示
-      for (let i = actionLogs.length - 1; i >= 0; i--) {
-        const log = actionLogs[i];
-        const time = new Date(log.createdAt).toLocaleString('zh-CN', {
-          timeZone: 'Asia/Shanghai',
-          hour12: false
-        });
-        if (log.action === InstanceAction.START) {
-          logHeader += `\n========== 实例已开机 (${time}) ==========\n`;
-        } else if (log.action === InstanceAction.STOP) {
-          logHeader += `\n========== 实例已停止 (${time}) ==========\n`;
-        }
-      }
-    }
 
     // 尝试获取容器日志
     let containerLogs = '';
@@ -632,6 +614,42 @@ export class InstancesService {
     } catch (error) {
       // 容器可能已停止，无法获取日志，仅返回操作历史
       console.log(`获取容器日志失败 (实例 ${id}):`, error.message);
+    }
+
+    // 构建日志标记
+    let logHeader = '';
+    if (recentActionLogs.length > 0) {
+      // 如果最近的操作是 START，显示开机标记
+      if (recentActionLogs[0].action === InstanceAction.START) {
+        const startTime = new Date(recentActionLogs[0].createdAt).toLocaleString('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+          hour12: false
+        });
+        logHeader = `========== 实例已开机 (${startTime}) ==========\n\n`;
+      }
+      // 如果最近的操作是 STOP，显示关机标记，并且如果之前有开机记录也显示
+      else if (recentActionLogs[0].action === InstanceAction.STOP) {
+        const stopTime = new Date(recentActionLogs[0].createdAt).toLocaleString('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+          hour12: false
+        });
+
+        // 如果有上一次的开机记录，先显示开机，再显示关机
+        if (recentActionLogs.length > 1 && recentActionLogs[1].action === InstanceAction.START) {
+          const startTime = new Date(recentActionLogs[1].createdAt).toLocaleString('zh-CN', {
+            timeZone: 'Asia/Shanghai',
+            hour12: false
+          });
+          logHeader = `========== 实例已开机 (${startTime}) ==========\n\n`;
+        }
+
+        // 在日志末尾添加关机标记（如果有容器日志的话）
+        if (containerLogs) {
+          containerLogs += `\n\n========== 实例已停止 (${stopTime}) ==========`;
+        } else {
+          logHeader += `========== 实例已停止 (${stopTime}) ==========\n\n`;
+        }
+      }
     }
 
     return {

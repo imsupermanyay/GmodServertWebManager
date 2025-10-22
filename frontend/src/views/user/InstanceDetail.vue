@@ -988,6 +988,8 @@ const connectLogsSocket = () => {
       // 使用当前游标获取日志，如果没有游标则获取全部
       const logParams = logCursor.value !== null ? { since: logCursor.value } : undefined
       const response = await instancesAPI.getLogs(props.id, logParams)
+      console.log(response.data.logs)
+      
       const shouldResetLogs = !logParams
       applyLogsPayload(response.data, shouldResetLogs)
       scrollConsoleToBottom()
@@ -1089,11 +1091,10 @@ const loadDetail = async (reset = false) => {
       const useCursor = !reset && !justStarted && !justStopped && logCursor.value !== null
       const logParams = useCursor ? { since: logCursor.value } : undefined
 
-      console.log('[loadDetail] reset:', reset, 'justStarted:', justStarted, 'justStopped:', justStopped, 'isRunning:', isRunning, 'logCursor:', logCursor.value, 'useCursor:', useCursor, 'logParams:', logParams)
 
       const logsResponse = await instancesAPI.getLogs(props.id, logParams)
-      console.log('[loadDetail响应] logs长度:', logsResponse.data?.logs?.length, 'cursor:', logsResponse.data?.cursor)
 
+      
       const shouldResetLogs = !useCursor
       applyLogsPayload(logsResponse.data, shouldResetLogs)
       scrollConsoleToBottom()
@@ -1142,6 +1143,7 @@ const refreshLogs = async (reset = false) => {
   try {
     const response = await instancesAPI.getLogs(props.id, logParams)
     console.log('[刷新响应] logs长度:', response.data?.logs?.length, 'cursor:', response.data?.cursor)
+    
 
     const shouldResetLogs = !useCursor
     applyLogsPayload(response.data, shouldResetLogs)
