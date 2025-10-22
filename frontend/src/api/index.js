@@ -96,7 +96,22 @@ export const instancesAPI = {
   getModeLinkInstances: () => api.get('/instances/links/instances'),
   getModeLinkGamemodes: () => api.get('/instances/links/gamemodes'),
   bindModeLink: (data) => api.post('/instances/links/bind', data),
-  unbindModeLink: (data) => api.post('/instances/links/unbind', data)
+  unbindModeLink: (data) => api.post('/instances/links/unbind', data),
+  // 文件管理
+  listFiles: (id, path) => api.get(`/instances/${id}/files`, { params: { path } }),
+  uploadFile: (id, path, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/instances/${id}/files/upload`, formData, {
+      params: { path },
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  downloadFile: (id, path) => api.get(`/instances/${id}/files/download`, {
+    params: { path },
+    responseType: 'blob'
+  }),
+  deleteFile: (id, path) => api.delete(`/instances/${id}/files`, { params: { path } })
 }
 
 // CFG 模板相关

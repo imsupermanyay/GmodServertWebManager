@@ -9,8 +9,9 @@ import { InstanceStatus, UserRole } from '../common/enums';
 import { CfgTemplate } from '../config-templates/entities/cfg-template.entity';
 import { StartupOption } from '../config-templates/entities/startup-option.entity';
 import { InternalServerErrorException, BadRequestException } from '@nestjs/common';
-import { promises as fs, Dirent } from 'fs';
+import { promises as fs, Dirent, createReadStream } from 'fs';
 import * as path from 'path';
+import { Gamemode } from '../gamemodes/entities/gamemode.entity';
 
 @Injectable()
 export class InstancesService {
@@ -21,6 +22,8 @@ export class InstancesService {
     private cfgTemplatesRepository: Repository<CfgTemplate>,
     @InjectRepository(StartupOption)
     private startupOptionsRepository: Repository<StartupOption>,
+    @InjectRepository(Gamemode)
+    private gamemodesRepository: Repository<Gamemode>,
     private dockerService: DockerService,
   ) { }
 
@@ -684,6 +687,136 @@ export class InstancesService {
 
   private async delay(ms: number): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // 文件管理相关方法
+  private async getGamemodeBuildDir(instanceId: number): Promise<string> {
+    const instance = await this.instancesRepository.findOne({ where: { id: instanceId } });
+    if (!instance) {
+      throw new NotFoundException('实例不存在');
+    }
+
+    if (!instance.gamemodeId) {
+      throw new BadRequestException('实例未绑定模式');
+    }
+
+    const gamemode = await this.gamemodesRepository.findOne({ where: { id: instance.gamemodeId } });
+    if (!gamemode) {
+      throw new NotFoundException('模式不存在');
+    }
+
+    return gamemode.buildDir;
+  }
+
+  private sanitizePath(inputPath: string): string {
+    const normalized = path.normalize(inputPath).replace(/^(\.\.(\/|\\|$))+/, '');
+    if (normalized.includes('..')) {
+      throw new BadRequestException('路径包含非法字符');
+    }
+    return normalized;
+  }
+
+  async listFiles(instanceId: number, relativePath: string, userId: number, userRole: UserRole) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    const buildDir = await this.getGamemodeBuildDir(instanceId);
+    const sanitizedPath = this.sanitizePath(relativePath);
+    const fullPath = path.join(buildDir, sanitizedPath);
+
+    try {
+      const entries = await fs.readdir(fullPath, { withFileTypes: true });
+      const files = await Promise.all(
+        entries.map(async (entry) => {
+          const entryPath = path.join(fullPath, entry.name);
+          const stats = await fs.stat(entryPath);
+          return {
+            name: entry.name,
+            isDirectory: entry.isDirectory(),
+            size: stats.size,
+            modifiedAt: stats.mtime,
+          };
+        })
+      );
+      return { files, currentPath: sanitizedPath };
+    } catch (error) {
+      throw new InternalServerErrorException('读取目录失败: ' + error.message);
+    }
+  }
+
+  async uploadFile(
+    instanceId: number,
+    relativePath: string,
+    file: Express.Multer.File,
+    userId: number,
+    userRole: UserRole
+  ) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    // 检查文件大小限制 (10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('文件大小不能超过 10MB');
+    }
+
+    const buildDir = await this.getGamemodeBuildDir(instanceId);
+    const sanitizedPath = this.sanitizePath(relativePath);
+    const targetDir = path.join(buildDir, sanitizedPath);
+    const targetPath = path.join(targetDir, file.originalname);
+
+    try {
+      await fs.mkdir(targetDir, { recursive: true });
+      await fs.writeFile(targetPath, file.buffer);
+      return { message: '文件上传成功', filename: file.originalname };
+    } catch (error) {
+      throw new InternalServerErrorException('文件上传失败: ' + error.message);
+    }
+  }
+
+  async downloadFile(instanceId: number, relativePath: string, userId: number, userRole: UserRole) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    const buildDir = await this.getGamemodeBuildDir(instanceId);
+    const sanitizedPath = this.sanitizePath(relativePath);
+    const fullPath = path.join(buildDir, sanitizedPath);
+
+    try {
+      const stats = await fs.stat(fullPath);
+      if (stats.isDirectory()) {
+        throw new BadRequestException('不能下载目录');
+      }
+
+      const filename = path.basename(fullPath);
+      const stream = createReadStream(fullPath);
+      return { stream, filename };
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        throw new NotFoundException('文件不存在');
+      }
+      throw new InternalServerErrorException('文件下载失败: ' + error.message);
+    }
+  }
+
+  async deleteFile(instanceId: number, relativePath: string, userId: number, userRole: UserRole) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    const buildDir = await this.getGamemodeBuildDir(instanceId);
+    const sanitizedPath = this.sanitizePath(relativePath);
+    const fullPath = path.join(buildDir, sanitizedPath);
+
+    try {
+      const stats = await fs.stat(fullPath);
+      if (stats.isDirectory()) {
+        await fs.rmdir(fullPath, { recursive: true });
+      } else {
+        await fs.unlink(fullPath);
+      }
+      return { message: '删除成功' };
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        throw new NotFoundException('文件不存在');
+      }
+      throw new InternalServerErrorException('删除失败: ' + error.message);
+    }
   }
 }
 

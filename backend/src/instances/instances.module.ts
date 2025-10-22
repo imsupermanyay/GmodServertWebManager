@@ -8,11 +8,12 @@ import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { CfgTemplate } from '../config-templates/entities/cfg-template.entity';
 import { StartupOption } from '../config-templates/entities/startup-option.entity';
+import { Gamemode } from '../gamemodes/entities/gamemode.entity';
 import { InstancesGateway } from './instances.gateway';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Instance, CfgTemplate, StartupOption]),
+    TypeOrmModule.forFeature([Instance, CfgTemplate, StartupOption, Gamemode]),
     AuthModule,
     UsersModule,
   ],

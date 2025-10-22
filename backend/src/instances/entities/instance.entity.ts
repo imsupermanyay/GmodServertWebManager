@@ -42,6 +42,9 @@ export class Instance {
   customCfg: string;
 
   @Column({ nullable: true })
+  gamemodeId: number;
+
+  @Column({ nullable: true })
   adminId: number;
 
   @ManyToOne(() => User, user => user.instances, { onDelete: 'SET NULL' })

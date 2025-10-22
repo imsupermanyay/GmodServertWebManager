@@ -57,6 +57,13 @@
           >
             查看启动项
           </button>
+          <button
+            @click="openFileManager"
+            :disabled="!instanceData"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-teal-400/40 bg-teal-500/10 text-teal-200 hover:bg-teal-500/20 hover:border-teal-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            文件管理
+          </button>
         </div>
         <div class="flex flex-wrap gap-2">
           <button
@@ -378,6 +385,133 @@
         </div>
       </div>
     </div>
+
+    <!-- 文件管理模态框 -->
+    <div v-if="showFileManagerModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div class="bg-slate-900 rounded-2xl border border-white/10 w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl shadow-black/50">
+        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+          <h3 class="text-xl font-bold text-white">文件管理 - BUILD 目录</h3>
+          <button @click="showFileManagerModal = false" class="text-slate-400 hover:text-white transition">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="overflow-y-auto max-h-[calc(90vh-200px)] scroll-sleek">
+          <div class="p-6">
+            <!-- 当前路径 -->
+            <div class="mb-4 bg-slate-800/50 border border-white/5 rounded-lg px-4 py-2 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                <span class="text-sm text-slate-300 font-mono">{{ currentPath || '/' }}</span>
+              </div>
+              <button
+                v-if="currentPath"
+                @click="navigateUp"
+                class="px-3 py-1 text-xs font-medium rounded-lg border border-slate-500/40 bg-slate-700/30 text-slate-200 hover:bg-slate-700/50 hover:border-slate-400/60 transition"
+              >
+                返回上级
+              </button>
+            </div>
+
+            <!-- 上传区域 -->
+            <div class="mb-4 bg-slate-800/30 border-2 border-dashed border-slate-600 rounded-lg px-4 py-3">
+              <div class="flex items-center gap-3">
+                <input
+                  type="file"
+                  ref="fileInput"
+                  @change="handleFileSelect"
+                  class="hidden"
+                />
+                <button
+                  @click="$refs.fileInput.click()"
+                  class="px-4 py-2 text-sm font-medium rounded-lg border border-blue-400/40 bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 hover:border-blue-300/70 hover:text-white transition"
+                >
+                  选择文件
+                </button>
+                <span v-if="selectedFile" class="text-sm text-slate-300">{{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})</span>
+                <span v-else class="text-sm text-slate-400">请选择文件上传 (最大 10MB)</span>
+                <button
+                  v-if="selectedFile"
+                  @click="uploadFile"
+                  :disabled="isUploading"
+                  class="ml-auto px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30 hover:border-emerald-300/70 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  {{ isUploading ? '上传中...' : '上传' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- 文件列表 -->
+            <div v-if="isLoadingFiles" class="text-center py-12 text-slate-400">
+              <div class="h-8 w-8 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-400 mx-auto mb-4"></div>
+              加载中...
+            </div>
+            <div v-else-if="fileList.length === 0" class="text-center py-12 text-slate-400">
+              <svg class="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              <p class="text-sm">目录为空</p>
+            </div>
+            <div v-else class="space-y-2">
+              <div
+                v-for="file in fileList"
+                :key="file.name"
+                class="bg-slate-800/50 border border-white/5 rounded-lg px-4 py-3 flex items-center justify-between hover:bg-slate-800/70 transition"
+              >
+                <div class="flex items-center gap-3 flex-1">
+                  <svg v-if="file.isDirectory" class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  <svg v-else class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  <div class="flex-1">
+                    <p
+                      class="text-sm font-medium text-white cursor-pointer hover:text-blue-300 transition"
+                      @click="file.isDirectory ? navigateInto(file.name) : null"
+                    >
+                      {{ file.name }}
+                    </p>
+                    <p class="text-xs text-slate-400 mt-1">
+                      {{ file.isDirectory ? '目录' : formatFileSize(file.size) }}
+                      <span v-if="file.modifiedAt"> · {{ formatDateTime(file.modifiedAt) }}</span>
+                    </p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    v-if="!file.isDirectory"
+                    @click="downloadFile(file.name)"
+                    class="px-3 py-1 text-xs font-medium rounded-lg border border-blue-400/40 bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 hover:border-blue-300/70 hover:text-white transition"
+                  >
+                    下载
+                  </button>
+                  <button
+                    @click="deleteFile(file.name, file.isDirectory)"
+                    class="px-3 py-1 text-xs font-medium rounded-lg border border-rose-400/40 bg-rose-500/20 text-rose-200 hover:bg-rose-500/30 hover:border-rose-300/70 hover:text-white transition"
+                  >
+                    删除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-white/10 flex justify-end">
+          <button
+            @click="showFileManagerModal = false"
+            class="px-5 py-2 text-sm font-medium rounded-lg border border-slate-500/40 bg-slate-700/30 text-slate-200 hover:bg-slate-700/50 hover:border-slate-400/60 transition"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -414,6 +548,13 @@ const customCfgContent = ref('')
 const isSavingCfg = ref(false)
 const showStartupModal = ref(false)
 const startupOptionContent = ref('')
+const showFileManagerModal = ref(false)
+const fileList = ref([])
+const currentPath = ref('')
+const isLoadingFiles = ref(false)
+const selectedFile = ref(null)
+const isUploading = ref(false)
+const fileInput = ref(null)
 const containerActionLoading = ref(false)
 const serverActionLoading = ref(false)
 const showScreenOverlay = ref(false)
@@ -1071,6 +1212,139 @@ function formatDuration(totalSeconds) {
     parts.push(`${seconds % 60}秒`)
   }
   return parts.join('')
+}
+
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let index = 0
+  let size = bytes
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024
+    index++
+  }
+  return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`
+}
+
+const openFileManager = async () => {
+  if (!instanceData.value) return
+
+  try {
+    currentPath.value = ''
+    showFileManagerModal.value = true
+    await loadFiles()
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '打开文件管理器失败',
+      { title: '文件管理' }
+    )
+  }
+}
+
+const loadFiles = async () => {
+  isLoadingFiles.value = true
+  try {
+    const response = await instancesAPI.listFiles(props.id, currentPath.value)
+    fileList.value = response.data.files
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '加载文件列表失败',
+      { title: '文件管理' }
+    )
+  } finally {
+    isLoadingFiles.value = false
+  }
+}
+
+const navigateInto = (dirname) => {
+  currentPath.value = currentPath.value ? `${currentPath.value}/${dirname}` : dirname
+  loadFiles()
+}
+
+const navigateUp = () => {
+  const parts = currentPath.value.split('/')
+  parts.pop()
+  currentPath.value = parts.join('/')
+  loadFiles()
+}
+
+const handleFileSelect = (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  const maxSize = 10 * 1024 * 1024 // 10MB
+  if (file.size > maxSize) {
+    notifications.error('文件大小不能超过 10MB', { title: '文件上传' })
+    selectedFile.value = null
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
+    return
+  }
+
+  selectedFile.value = file
+}
+
+const uploadFile = async () => {
+  if (!selectedFile.value) return
+
+  isUploading.value = true
+  try {
+    await instancesAPI.uploadFile(props.id, currentPath.value, selectedFile.value)
+    notifications.success('文件上传成功')
+    selectedFile.value = null
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
+    await loadFiles()
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '文件上传失败',
+      { title: '文件上传' }
+    )
+  } finally {
+    isUploading.value = false
+  }
+}
+
+const downloadFile = async (filename) => {
+  try {
+    const filePath = currentPath.value ? `${currentPath.value}/${filename}` : filename
+    const response = await instancesAPI.downloadFile(props.id, filePath)
+
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+
+    notifications.success('文件下载成功')
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '文件下载失败',
+      { title: '文件下载' }
+    )
+  }
+}
+
+const deleteFile = async (filename, isDirectory) => {
+  const type = isDirectory ? '目录' : '文件'
+  if (!confirm(`确定要删除这个${type}吗？${isDirectory ? '目录下的所有内容都将被删除。' : ''}`)) return
+
+  try {
+    const filePath = currentPath.value ? `${currentPath.value}/${filename}` : filename
+    await instancesAPI.deleteFile(props.id, filePath)
+    notifications.success(`${type}删除成功`)
+    await loadFiles()
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || `${type}删除失败`,
+      { title: '删除' }
+    )
+  }
 }
 
 onMounted(() => {

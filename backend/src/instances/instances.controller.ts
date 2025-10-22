@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query, UseInterceptors, UploadedFile, Res, StreamableFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { InstancesService } from './instances.service';
 import { CreateInstanceDto } from './dto/create-instance.dto';
 import { UpdateInstanceDto } from './dto/update-instance.dto';
@@ -116,5 +118,42 @@ export class InstancesController {
   @Post(':id/exec')
   execCommand(@Param('id') id: string, @Body() body: { command: string }, @Request() req) {
     return this.instancesService.execCommand(+id, body.command, req.user.id, req.user.role);
+  }
+
+  // 文件管理相关接口
+  @Get(':id/files')
+  listFiles(@Param('id') id: string, @Query('path') path: string, @Request() req) {
+    return this.instancesService.listFiles(+id, path || '', req.user.id, req.user.role);
+  }
+
+  @Post(':id/files/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadFile(
+    @Param('id') id: string,
+    @Query('path') path: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req
+  ) {
+    return this.instancesService.uploadFile(+id, path || '', file, req.user.id, req.user.role);
+  }
+
+  @Get(':id/files/download')
+  async downloadFile(
+    @Param('id') id: string,
+    @Query('path') path: string,
+    @Request() req,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const result = await this.instancesService.downloadFile(+id, path, req.user.id, req.user.role);
+    res.set({
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(result.filename)}"`,
+    });
+    return new StreamableFile(result.stream);
+  }
+
+  @Delete(':id/files')
+  deleteFile(@Param('id') id: string, @Query('path') path: string, @Request() req) {
+    return this.instancesService.deleteFile(+id, path, req.user.id, req.user.role);
   }
 }
