@@ -419,29 +419,63 @@
 
             <!-- 上传区域 -->
             <div class="mb-4 bg-slate-800/30 border-2 border-dashed border-slate-600 rounded-lg px-4 py-3">
-              <div class="flex items-center gap-3">
-                <input
-                  type="file"
-                  ref="fileInput"
-                  @change="handleFileSelect"
-                  class="hidden"
-                />
-                <button
-                  @click="$refs.fileInput.click()"
-                  class="px-4 py-2 text-sm font-medium rounded-lg border border-blue-400/40 bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 hover:border-blue-300/70 hover:text-white transition"
-                >
-                  选择文件
-                </button>
-                <span v-if="selectedFile" class="text-sm text-slate-300">{{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})</span>
-                <span v-else class="text-sm text-slate-400">请选择文件上传 (最大 10MB)</span>
-                <button
-                  v-if="selectedFile"
-                  @click="uploadFile"
-                  :disabled="isUploading"
-                  class="ml-auto px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30 hover:border-emerald-300/70 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
-                >
-                  {{ isUploading ? '上传中...' : '上传' }}
-                </button>
+              <div class="space-y-3">
+                <!-- 单文件上传 -->
+                <div class="flex items-center gap-3">
+                  <input
+                    type="file"
+                    ref="fileInput"
+                    @change="handleFileSelect"
+                    class="hidden"
+                  />
+                  <button
+                    @click="$refs.fileInput.click()"
+                    class="px-4 py-2 text-sm font-medium rounded-lg border border-blue-400/40 bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 hover:border-blue-300/70 hover:text-white transition"
+                  >
+                    选择文件
+                  </button>
+                  <span v-if="selectedFile" class="text-sm text-slate-300">{{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})</span>
+                  <span v-else class="text-sm text-slate-400">请选择文件上传 (最大 10MB)</span>
+                  <button
+                    v-if="selectedFile"
+                    @click="uploadFile"
+                    :disabled="isUploading"
+                    class="ml-auto px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30 hover:border-emerald-300/70 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    {{ isUploading ? '上传中...' : '上传' }}
+                  </button>
+                </div>
+
+                <!-- 文件夹上传 -->
+                <div class="flex items-center gap-3 pt-2 border-t border-slate-600">
+                  <input
+                    type="file"
+                    ref="folderInput"
+                    @change="handleFolderSelect"
+                    webkitdirectory
+                    directory
+                    multiple
+                    class="hidden"
+                  />
+                  <button
+                    @click="$refs.folderInput.click()"
+                    class="px-4 py-2 text-sm font-medium rounded-lg border border-purple-400/40 bg-purple-500/20 text-purple-200 hover:bg-purple-500/30 hover:border-purple-300/70 hover:text-white transition"
+                  >
+                    选择文件夹
+                  </button>
+                  <span v-if="selectedFolder && selectedFolder.length > 0" class="text-sm text-slate-300">
+                    已选择 {{ selectedFolder.length }} 个文件
+                  </span>
+                  <span v-else class="text-sm text-slate-400">批量上传文件夹 (每个文件最大 10MB)</span>
+                  <button
+                    v-if="selectedFolder && selectedFolder.length > 0"
+                    @click="uploadFolder"
+                    :disabled="isUploadingFolder"
+                    class="ml-auto px-4 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30 hover:border-emerald-300/70 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    {{ isUploadingFolder ? `上传中 (${uploadProgress}/${selectedFolder.length})` : '上传文件夹' }}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -555,6 +589,10 @@ const isLoadingFiles = ref(false)
 const selectedFile = ref(null)
 const isUploading = ref(false)
 const fileInput = ref(null)
+const selectedFolder = ref([])
+const folderInput = ref(null)
+const isUploadingFolder = ref(false)
+const uploadProgress = ref(0)
 const containerActionLoading = ref(false)
 const serverActionLoading = ref(false)
 const showScreenOverlay = ref(false)
@@ -1304,6 +1342,80 @@ const uploadFile = async () => {
     )
   } finally {
     isUploading.value = false
+  }
+}
+
+const handleFolderSelect = (event) => {
+  const files = Array.from(event.target.files || [])
+  if (files.length === 0) return
+
+  // 检查每个文件大小
+  const maxSize = 10 * 1024 * 1024 // 10MB
+  const oversizedFiles = files.filter(f => f.size > maxSize)
+
+  if (oversizedFiles.length > 0) {
+    notifications.error(
+      `以下文件超过 10MB 限制: ${oversizedFiles.map(f => f.name).join(', ')}`,
+      { title: '文件上传' }
+    )
+    selectedFolder.value = []
+    if (folderInput.value) {
+      folderInput.value.value = ''
+    }
+    return
+  }
+
+  selectedFolder.value = files
+}
+
+const uploadFolder = async () => {
+  if (!selectedFolder.value || selectedFolder.value.length === 0) return
+
+  isUploadingFolder.value = true
+  uploadProgress.value = 0
+  let successCount = 0
+  let failCount = 0
+
+  try {
+    for (let i = 0; i < selectedFolder.value.length; i++) {
+      const file = selectedFolder.value[i]
+
+      // 获取文件的相对路径
+      const relativePath = file.webkitRelativePath || file.name
+
+      try {
+        await instancesAPI.uploadFileToFolder(props.id, currentPath.value, relativePath, file)
+        successCount++
+      } catch (error) {
+        console.error(`上传文件 ${file.name} 失败:`, error)
+        failCount++
+      }
+
+      uploadProgress.value = i + 1
+    }
+
+    if (failCount === 0) {
+      notifications.success(`成功上传 ${successCount} 个文件`)
+    } else {
+      notifications.warning(
+        `上传完成: 成功 ${successCount} 个, 失败 ${failCount} 个`,
+        { title: '文件夹上传' }
+      )
+    }
+
+    selectedFolder.value = []
+    if (folderInput.value) {
+      folderInput.value.value = ''
+    }
+    await loadFiles()
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '文件夹上传失败',
+      { title: '文件夹上传' }
+    )
+  } finally {
+    isUploadingFolder.value = false
+    uploadProgress.value = 0
   }
 }
 

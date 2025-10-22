@@ -107,6 +107,14 @@ export const instancesAPI = {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
   },
+  uploadFileToFolder: (id, path, relativePath, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/instances/${id}/files/upload-folder`, formData, {
+      params: { path, relativePath },
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
   downloadFile: (id, path) => api.get(`/instances/${id}/files/download`, {
     params: { path },
     responseType: 'blob'

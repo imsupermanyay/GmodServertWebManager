@@ -764,6 +764,10 @@ export class InstancesService {
   ) {
     await this.checkPermission(instanceId, userId, userRole);
 
+    if (!file || !file.buffer) {
+      throw new BadRequestException('文件内容为空');
+    }
+
     // 检查文件大小限制 (10MB)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
@@ -779,6 +783,44 @@ export class InstancesService {
       await fs.mkdir(targetDir, { recursive: true });
       await fs.writeFile(targetPath, file.buffer);
       return { message: '文件上传成功', filename: file.originalname };
+    } catch (error) {
+      throw new InternalServerErrorException('文件上传失败: ' + error.message);
+    }
+  }
+
+  async uploadFileToFolder(
+    instanceId: number,
+    basePath: string,
+    fileRelativePath: string,
+    file: any,
+    userId: number,
+    userRole: UserRole
+  ) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    if (!file || !file.buffer) {
+      throw new BadRequestException('文件内容为空');
+    }
+
+    // 检查文件大小限制 (10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('文件大小不能超过 10MB');
+    }
+
+    const buildDir = await this.getGamemodeBuildDir(instanceId);
+    const sanitizedBasePath = this.sanitizePath(basePath);
+    const sanitizedRelativePath = this.sanitizePath(fileRelativePath);
+
+    // 组合完整路径
+    const fullRelativePath = path.join(sanitizedBasePath, sanitizedRelativePath);
+    const targetPath = path.join(buildDir, fullRelativePath);
+    const targetDir = path.dirname(targetPath);
+
+    try {
+      await fs.mkdir(targetDir, { recursive: true });
+      await fs.writeFile(targetPath, file.buffer);
+      return { message: '文件上传成功', filename: path.basename(targetPath) };
     } catch (error) {
       throw new InternalServerErrorException('文件上传失败: ' + error.message);
     }

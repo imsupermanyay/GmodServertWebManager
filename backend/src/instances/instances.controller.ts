@@ -127,14 +127,40 @@ export class InstancesController {
   }
 
   @Post(':id/files/upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    }
+  }))
   uploadFile(
     @Param('id') id: string,
     @Query('path') path: string,
     @UploadedFile() file: any,
     @Request() req
   ) {
+    if (!file) {
+      throw new BadRequestException('请选择要上传的文件');
+    }
     return this.instancesService.uploadFile(+id, path || '', file, req.user.id, req.user.role);
+  }
+
+  @Post(':id/files/upload-folder')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB per file
+    }
+  }))
+  uploadFileToFolder(
+    @Param('id') id: string,
+    @Query('path') path: string,
+    @Query('relativePath') relativePath: string,
+    @UploadedFile() file: any,
+    @Request() req
+  ) {
+    if (!file) {
+      throw new BadRequestException('请选择要上传的文件');
+    }
+    return this.instancesService.uploadFileToFolder(+id, path || '', relativePath || '', file, req.user.id, req.user.role);
   }
 
   @Get(':id/files/download')
