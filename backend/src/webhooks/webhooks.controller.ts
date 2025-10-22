@@ -312,10 +312,9 @@ export class WebhooksController {
     };
   }
 
-  // 获取同步日志列表
+  // 获取同步日志列表（所有登录用户都可以查看）
   @Get('sync-logs')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(JwtAuthGuard)
   async getSyncLogs(
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '50',
