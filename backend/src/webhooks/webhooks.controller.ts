@@ -284,10 +284,9 @@ export class WebhooksController {
     }
   }
 
-  // 手动触发同步
+  // 手动触发同步（所有登录用户都可以触发）
   @Post('sync')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(JwtAuthGuard)
   async manualSync(@Body('gamemodeName') gamemodeName: string) {
     if (!gamemodeName) {
       return {
