@@ -43,6 +43,11 @@ const routes = [
         path: 'gamemodes',
         name: 'Gamemodes',
         component: () => import('../views/admin/Gamemodes.vue')
+      },
+      {
+        path: 'sync-logs',
+        name: 'SyncLogs',
+        component: () => import('../views/admin/SyncLogs.vue')
       }
     ]
   },

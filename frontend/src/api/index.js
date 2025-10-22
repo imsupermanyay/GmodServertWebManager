@@ -157,4 +157,10 @@ export const gamemodesAPI = {
   delete: (id) => api.delete(`/gamemodes/${id}`)
 }
 
+// 同步相关
+export const syncAPI = {
+  manualSync: (gamemodeName) => api.post('/webhooks/sync', { gamemodeName }),
+  getSyncLogs: (params) => api.get('/webhooks/sync-logs', { params })
+}
+
 export default api

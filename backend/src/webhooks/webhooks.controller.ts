@@ -1,9 +1,16 @@
-import { Controller, Get, Post, Req } from '@nestjs/common';
+import { Controller, Get, Post, Req, Body, UseGuards, Query } from '@nestjs/common';
 import { Request } from 'express';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync } from 'fs';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { GamemodesService } from '../gamemodes/gamemodes.service';
+import { SyncLog, SyncStatus } from './entities/sync-log.entity';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { UserRole } from '../common/enums';
 
 const execAsync = promisify(exec);
 const BASE_REPO_DIR = '/opt/allgamemodes';
@@ -12,7 +19,11 @@ const BASE_REPO_DIR = '/opt/allgamemodes';
 export class WebhooksController {
   private readonly repoTasks = new Map<string, Promise<void>>();
 
-  constructor(private readonly gamemodesService: GamemodesService) { }
+  constructor(
+    private readonly gamemodesService: GamemodesService,
+    @InjectRepository(SyncLog)
+    private syncLogRepository: Repository<SyncLog>,
+  ) { }
 
   @Get('gitea')
   handleGiteaWebhook(@Req() req: Request) {
@@ -132,7 +143,9 @@ export class WebhooksController {
     }
   }
 
-  private async syncCoreToDevRepository(repositoryName: string) {
+  private async syncCoreToDevRepository(repositoryName: string, isManualSync: boolean = false) {
+    let syncLog: SyncLog = null;
+
     try {
       // 解析模式名称
       const gamemodeName = this.gamemodesService.parseGamemodeNameFromRepo(repositoryName);
@@ -143,10 +156,22 @@ export class WebhooksController {
 
       console.log(`[Webhook][${repositoryName}] Parsed gamemode name: ${gamemodeName}`);
 
+      // 创建同步日志
+      syncLog = this.syncLogRepository.create({
+        gamemodeName,
+        repositoryName,
+        status: SyncStatus.IN_PROGRESS,
+        isManualSync,
+        message: '开始同步...',
+      });
+      await this.syncLogRepository.save(syncLog);
+
       // 获取模式配置
       const gamemodeDirs = await this.gamemodesService.getGamemodeDirs(gamemodeName);
       if (!gamemodeDirs) {
-        console.warn(`[Webhook][${repositoryName}] Gamemode config not found for: ${gamemodeName}`);
+        const errorMsg = `Gamemode config not found for: ${gamemodeName}`;
+        console.warn(`[Webhook][${repositoryName}] ${errorMsg}`);
+        await this.updateSyncLog(syncLog.id, SyncStatus.FAILED, errorMsg, errorMsg);
         return;
       }
 
@@ -159,15 +184,21 @@ export class WebhooksController {
 
       // 检查目录是否存在
       if (!existsSync(coreDir)) {
-        console.error(`[Webhook][${repositoryName}] Core directory does not exist: ${coreDir}`);
+        const errorMsg = `Core directory does not exist: ${coreDir}`;
+        console.error(`[Webhook][${repositoryName}] ${errorMsg}`);
+        await this.updateSyncLog(syncLog.id, SyncStatus.FAILED, '核心目录不存在', errorMsg);
         return;
       }
       if (!existsSync(buildDir)) {
-        console.error(`[Webhook][${repositoryName}] Build directory does not exist: ${buildDir}`);
+        const errorMsg = `Build directory does not exist: ${buildDir}`;
+        console.error(`[Webhook][${repositoryName}] ${errorMsg}`);
+        await this.updateSyncLog(syncLog.id, SyncStatus.FAILED, '构建目录不存在', errorMsg);
         return;
       }
       if (!existsSync(devDir)) {
-        console.error(`[Webhook][${repositoryName}] Dev directory does not exist: ${devDir}`);
+        const errorMsg = `Dev directory does not exist: ${devDir}`;
+        console.error(`[Webhook][${repositoryName}] ${errorMsg}`);
+        await this.updateSyncLog(syncLog.id, SyncStatus.FAILED, '开发目录不存在', errorMsg);
         return;
       }
 
@@ -204,6 +235,7 @@ export class WebhooksController {
       const { stdout: statusOutput } = await execAsync(`git -C "${devDir}" status --porcelain`);
       if (!statusOutput.trim()) {
         console.log(`[Webhook][${repositoryName}] No changes to commit in dev repository`);
+        await this.updateSyncLog(syncLog.id, SyncStatus.SUCCESS, '同步成功（无更改）', null);
         return;
       }
 
@@ -222,10 +254,23 @@ export class WebhooksController {
       );
 
       console.log(`[Webhook][${repositoryName}] ✅ Successfully synced to dev repository!`);
+      await this.updateSyncLog(syncLog.id, SyncStatus.SUCCESS, '同步成功', null);
     } catch (error) {
       console.error(`[Webhook][${repositoryName}] Failed to sync to dev:`, error.message);
+      if (syncLog) {
+        await this.updateSyncLog(syncLog.id, SyncStatus.FAILED, '同步失败', error.message + '\n' + error.stack);
+      }
       throw error;
     }
+  }
+
+  private async updateSyncLog(id: number, status: SyncStatus, message: string, errorDetails: string | null) {
+    await this.syncLogRepository.update(id, {
+      status,
+      message,
+      errorDetails,
+      completedAt: new Date(),
+    });
   }
 
   private async runGitCommand(command: string, repositoryName: string) {
@@ -237,5 +282,67 @@ export class WebhooksController {
     if (stderr) {
       console.warn(`[Webhook][${repositoryName}] git stderr:\n${stderr}`);
     }
+  }
+
+  // 手动触发同步
+  @Post('sync')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  async manualSync(@Body('gamemodeName') gamemodeName: string) {
+    if (!gamemodeName) {
+      return {
+        success: false,
+        message: '游戏模式名称不能为空',
+      };
+    }
+
+    const repositoryName = `${gamemodeName}_core`;
+
+    // 使用队列机制触发同步
+    this.enqueueRepoTask(repositoryName, async () => {
+      await this.syncCoreToDevRepository(repositoryName, true);
+    }).catch((error) => {
+      console.error(`[ManualSync][${repositoryName}] sync task failed:`, error);
+    });
+
+    return {
+      success: true,
+      message: '同步任务已加入队列',
+      gamemodeName,
+    };
+  }
+
+  // 获取同步日志列表
+  @Get('sync-logs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  async getSyncLogs(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '50',
+    @Query('gamemodeName') gamemodeName?: string,
+  ) {
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const queryBuilder = this.syncLogRepository
+      .createQueryBuilder('syncLog')
+      .orderBy('syncLog.createdAt', 'DESC')
+      .skip(skip)
+      .take(limitNum);
+
+    if (gamemodeName) {
+      queryBuilder.where('syncLog.gamemodeName = :gamemodeName', { gamemodeName });
+    }
+
+    const [logs, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      logs,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+    };
   }
 }
