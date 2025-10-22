@@ -651,20 +651,30 @@ export class InstancesService {
       throw new ConflictException('无法检测服务器状态');
     }
 
-    // 通过RCON发送命令到GMOD服务器
-    // 使用 screen 发送命令到 srcds_run 进程
-    // 由于 screen 会话运行在 gmod 用户下，需要以 gmod 用户执行命令
-    const screenCommand = `runuser -u gmod -- screen -S gmod -X stuff "${command.replace(/"/g, '\\"')}^M"`;
-
+    // 通过命名管道发送命令到 GMOD 服务器
+    const fifoPath = '/opt/steam/garrysmod/servercmd.fifo';
     try {
-      await this.dockerService.execCommand(instance.dockerId, screenCommand, {
-        cwd: '/opt/steam',
-        detach: false,
-      });
+      // 检查 FIFO 是否存在
+      const checkFifo = await this.dockerService.execCommand(
+        instance.dockerId,
+        `test -p ${fifoPath} && echo "exists" || echo "not_exists"`,
+        { detach: false }
+      );
 
-      return { output: `RCON命令已发送: ${command}` };
+      if (!checkFifo.output?.trim().includes('exists')) {
+        throw new ConflictException('命令管道不存在，请重启服务器实例');
+      }
+
+      // 向 FIFO 写入命令（命令会被传递到 srcds_run 的标准输入）
+      await this.dockerService.execCommand(
+        instance.dockerId,
+        `echo "${command.replace(/"/g, '\\"')}" > ${fifoPath}`,
+        { detach: false }
+      );
+
+      return { output: `命令已发送: ${command}` };
     } catch (error) {
-      throw new ConflictException(`发送RCON命令失败: ${error.message}`);
+      throw new ConflictException(`发送命令失败: ${error.message}`);
     }
   }
   private async ensureContainerRunning(instance: Instance): Promise<void> {

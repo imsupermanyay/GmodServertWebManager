@@ -987,7 +987,7 @@ const connectLogsSocket = () => {
       // 使用当前游标获取日志，如果没有游标则获取全部
       const logParams = logCursor.value !== null ? { since: logCursor.value } : undefined
       const response = await instancesAPI.getLogs(props.id, logParams)
-      console.log(response.data.logs)
+
       
       const shouldResetLogs = !logParams
       applyLogsPayload(response.data, shouldResetLogs)

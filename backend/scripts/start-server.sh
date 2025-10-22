@@ -28,10 +28,21 @@ if [[ -n "${START_VALUE}" ]]; then
   fi
 
   printf '[start-server] 检测到 StartValue，准备启动服务器\n'
+
+  # 创建命名管道用于接收命令
+  FIFO_PATH="${STEAMAPP_DIR}/garrysmod/servercmd.fifo"
+  mkdir -p "$(dirname "${FIFO_PATH}")"
+
+  if [[ ! -p "${FIFO_PATH}" ]]; then
+    mkfifo "${FIFO_PATH}"
+    printf '[start-server] 创建命令管道: %s\n' "${FIFO_PATH}"
+  fi
+
+  # 启动服务器并将 FIFO 重定向到标准输入
   if [[ "$(id -u)" -eq 0 ]]; then
-    exec gosu "${STEAM_USER}" bash -lc "cd \"${STEAMAPP_DIR}\" && exec ./srcds_run ${START_VALUE}"
+    exec gosu "${STEAM_USER}" bash -lc "cd \"${STEAMAPP_DIR}\" && tail -f \"${FIFO_PATH}\" | ./srcds_run ${START_VALUE}"
   else
-    exec bash -lc "cd \"${STEAMAPP_DIR}\" && exec ./srcds_run ${START_VALUE}"
+    exec bash -lc "cd \"${STEAMAPP_DIR}\" && tail -f \"${FIFO_PATH}\" | ./srcds_run ${START_VALUE}"
   fi
 fi
 
