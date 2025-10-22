@@ -107,13 +107,13 @@
             >
               停止
             </button>
-            <button
+            <!-- <button
               @click.stop="restartInstance(instance.id)"
               :disabled="instance.status !== 'RUNNING'"
               class="px-3 py-2 text-xs font-medium rounded-lg bg-amber-500/20 text-amber-200 border border-amber-400/40 hover:bg-amber-500/30 hover:border-amber-300/70 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
               重启
-            </button>
+            </button> -->
           </div>
         </div>
         <div class="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/0 via-blue-500/0 to-blue-500/0 group-hover:from-blue-500/10 group-hover:via-purple-500/10 group-hover:to-transparent transition-opacity"></div>

@@ -7,9 +7,11 @@
 
       <div class="relative">
         <div class="flex justify-center mb-6">
-          <div class="h-14 w-14 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-200 text-2xl font-bold shadow-inner shadow-blue-900/40">
-            GM
-          </div>
+          <img
+            src="../pic/64.png"
+            alt="Logo"
+            class="h-14 w-14 rounded-2xl object-contain"
+          />
         </div>
         <h1 class="text-3xl font-semibold text-center text-white tracking-tight">
           GMOD 管理面板

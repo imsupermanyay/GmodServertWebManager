@@ -4,9 +4,11 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
           <div class="flex items-center space-x-3">
-            <div class="h-9 w-9 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300 text-lg font-bold">
-              GM
-            </div>
+            <img
+              src="../../pic/64.png"
+              alt="Logo"
+              class="h-9 w-9 rounded-xl object-contain"
+            />
             <div>
               <p class="text-sm uppercase tracking-[0.35em] text-slate-400">Instance</p>
               <h1 class="text-lg font-semibold text-slate-100">管理员控制中心</h1>

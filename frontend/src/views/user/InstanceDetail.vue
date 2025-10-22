@@ -169,6 +169,9 @@
             <button class="text-blue-300 hover:text-blue-200 transition" @click="refreshLogs">
               立即刷新  
             </button>
+            <button class="text-red-300 hover:text-red-200 transition" @click="clearLogs">
+              清空
+            </button>
           </div>
         </div>
         <div
@@ -805,6 +808,7 @@ let refreshInFlight = false
 let logsSocket = null
 let socketReconnectTimer = null
 let hasActiveSubscription = false
+let containerStartTime = null // 容器启动时间（毫秒时间戳）
 
 const containerInfo = computed(() => instanceData.value?.containerInfo || null)
 const detailStats = computed(() => containerInfo.value?.stats || null)
@@ -969,9 +973,20 @@ const connectLogsSocket = () => {
 
   logsSocket.on('logs:subscribed', async () => {
     socketConnected.value = true
+    console.log('[WebSocket] 日志流已订阅，当前容器状态:', instanceData.value?.status)
+
+    // 只在容器运行时获取初始日志
+    if (instanceData.value?.status !== 'RUNNING') {
+      console.log('[WebSocket] 容器未运行，跳过日志获取')
+      return
+    }
+
     try {
-      const response = await instancesAPI.getLogs(props.id)
-      applyLogsPayload(response.data, true)
+      // 使用当前游标获取日志，如果没有游标则获取全部
+      const logParams = logCursor.value !== null ? { since: logCursor.value } : undefined
+      const response = await instancesAPI.getLogs(props.id, logParams)
+      const shouldResetLogs = !logParams
+      applyLogsPayload(response.data, shouldResetLogs)
       scrollConsoleToBottom()
     } catch (error) {
       notifications.error(
@@ -1011,7 +1026,7 @@ const appendLogs = (text) => {
 const applyLogsPayload = (payload, reset = false) => {
   const logsText = payload?.logs ?? ''
 
-  if (reset || detailLogs.value === '' || logCursor.value === null) {
+  if (reset) {
     detailLogs.value = logsText
   } else if (logsText) {
     appendLogs(logsText)
@@ -1037,22 +1052,44 @@ const loadDetail = async (reset = false) => {
     logCursor.value = null
   }
 
-  const shouldFetchLogs = !useRealtimeLogs.value || !socketConnected.value
-  const useCursor = shouldFetchLogs && !reset && logCursor.value !== null
-  const logParams = useCursor ? { since: logCursor.value } : undefined
-
   try {
-    const requests = [instancesAPI.getInfo(props.id)]
-    if (shouldFetchLogs) {
-      requests.push(instancesAPI.getLogs(props.id, logParams))
+    // 先获取实例信息
+    const infoResponse = await instancesAPI.getInfo(props.id)
+    const newInstanceData = infoResponse.data
+    const wasRunning = instanceData.value?.status === 'RUNNING'
+    const isRunning = newInstanceData?.status === 'RUNNING'
+
+    // 检测容器是否重启（从停止到运行）
+    const justStarted = !wasRunning && isRunning
+    if (justStarted) {
+      // 容器刚启动，记录启动时间并清空日志
+      containerStartTime = Date.now()
+      detailLogs.value = ''
+      logCursor.value = null
+      console.log('[开机] 检测到容器启动，清空日志，记录启动时间:', containerStartTime)
+    } else if (wasRunning && !isRunning) {
+      // 容器刚停止
+      console.log('[关机] 检测到容器停止')
+      containerStartTime = null
     }
 
-    const responses = await Promise.all(requests)
-    instanceData.value = responses[0].data
+    instanceData.value = newInstanceData
+
+    // 只有在容器运行时才获取日志
+    // 如果刚启动，强制获取日志；否则只在非实时模式或 WebSocket 未连接时获取
+    const shouldFetchLogs = isRunning && (justStarted || !useRealtimeLogs.value || !socketConnected.value)
 
     if (shouldFetchLogs) {
-      const logsResponse = responses[1]
-      applyLogsPayload(logsResponse.data, reset || !useCursor)
+      const useCursor = !reset && !justStarted && logCursor.value !== null
+      const logParams = useCursor ? { since: logCursor.value } : undefined
+
+      console.log('[loadDetail] reset:', reset, 'justStarted:', justStarted, 'isRunning:', isRunning, 'logCursor:', logCursor.value, 'useCursor:', useCursor, 'logParams:', logParams)
+
+      const logsResponse = await instancesAPI.getLogs(props.id, logParams)
+      console.log('[loadDetail响应] logs长度:', logsResponse.data?.logs?.length, 'cursor:', logsResponse.data?.cursor)
+
+      const shouldResetLogs = !useCursor
+      applyLogsPayload(logsResponse.data, shouldResetLogs)
       scrollConsoleToBottom()
     }
   } catch (error) {
@@ -1076,6 +1113,12 @@ const refreshAll = () => {
 }
 
 const refreshLogs = async (reset = false) => {
+  // 只有在运行状态下才能刷新日志
+  if (!isContainerRunning.value) {
+    notifications.info('实例未运行，无法刷新日志', { title: '日志刷新' })
+    return
+  }
+
   if (useRealtimeLogs.value && socketConnected.value) {
     subscribeLogs(reset)
     return
@@ -1088,9 +1131,14 @@ const refreshLogs = async (reset = false) => {
   const useCursor = !reset && logCursor.value !== null
   const logParams = useCursor ? { since: logCursor.value } : undefined
 
+  console.log('[刷新] reset:', reset, 'logCursor:', logCursor.value, 'useCursor:', useCursor, 'logParams:', logParams)
+
   try {
     const response = await instancesAPI.getLogs(props.id, logParams)
-    applyLogsPayload(response.data, reset || !useCursor)
+    console.log('[刷新响应] logs长度:', response.data?.logs?.length, 'cursor:', response.data?.cursor)
+
+    const shouldResetLogs = !useCursor
+    applyLogsPayload(response.data, shouldResetLogs)
     scrollConsoleToBottom()
   } catch (error) {
     notifications.error(
@@ -1098,6 +1146,12 @@ const refreshLogs = async (reset = false) => {
       { title: '日志刷新失败' }
     )
   }
+}
+
+const clearLogs = () => {
+  detailLogs.value = ''
+  logCursor.value = null
+  notifications.success('控制台已清空', { title: '控制台' })
 }
 
 const startAutoRefresh = () => {
@@ -1122,6 +1176,7 @@ watch(numericInstanceId, (newId, oldId) => {
 
   logCursor.value = null
   detailLogs.value = ''
+  containerStartTime = null
 
   if (logsSocket && logsSocket.connected) {
     if (!Number.isNaN(oldId) && hasActiveSubscription) {
@@ -1163,6 +1218,7 @@ const startInstance = async () => {
   try {
     await instancesAPI.start(props.id)
     notifications.success('实例启动成功')
+    // loadDetail会自动检测状态变化并清空日志
     await loadDetail(true)
   } catch (error) {
     notifications.error(
@@ -1179,17 +1235,19 @@ const stopInstance = async () => {
 
   const previousLogs = detailLogs.value
 
-  detailLogs.value = ''
   screenOverlayMessage.value = '实例正在关机，请稍候...'
   showScreenOverlay.value = true
   containerActionLoading.value = true
   try {
     await instancesAPI.stop(props.id)
     notifications.success('实例已停止')
+    // 显示关机信息
+    detailLogs.value = previousLogs + '\n\n========== 实例已停止 =========='
+    logCursor.value = null
     await loadDetail(true)
   } catch (error) {
     detailLogs.value = previousLogs
-    console.log(error.response) 
+    console.log(error.response)
     notifications.error(
       error.response?.data?.message ,
       { title: '停止实例失败' }

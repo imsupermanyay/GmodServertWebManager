@@ -514,10 +514,16 @@ export class DockerService {
     }
 
     // 匹配 Docker 时间戳格式: 2025-10-15T07:29:43.954117417Z
-    // 替换为简短格式: [07:29:43]
+    // 将 UTC 时间转换为本地时间并替换为简短格式: [15:29:43]
     return value.replace(
-      /(\d{4}-\d{2}-\d{2}T)(\d{2}:\d{2}:\d{2})\.\d+Z\s/g,
-      '[$2] '
+      /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.\d+Z\s/g,
+      (match, isoDateTime) => {
+        const utcDate = new Date(isoDateTime + 'Z');
+        const hours = utcDate.getHours().toString().padStart(2, '0');
+        const minutes = utcDate.getMinutes().toString().padStart(2, '0');
+        const seconds = utcDate.getSeconds().toString().padStart(2, '0');
+        return `[${hours}:${minutes}:${seconds}] `;
+      }
     );
   }
 
