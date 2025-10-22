@@ -12,7 +12,7 @@ import { InternalServerErrorException, BadRequestException } from '@nestjs/commo
 import { promises as fs, Dirent, createReadStream } from 'fs';
 import * as path from 'path';
 import { Gamemode } from '../gamemodes/entities/gamemode.entity';
-import * as archiver from 'archiver';
+import archiver from 'archiver';
 
 @Injectable()
 export class InstancesService {
