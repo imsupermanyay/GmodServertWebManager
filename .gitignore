@@ -7,7 +7,7 @@ dist/
 build/
 **/dist/
 
-
+.package-lock.json
 
 # 日志
 logs/
