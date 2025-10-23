@@ -673,12 +673,26 @@ export class InstancesService {
         throw new ConflictException(`服务器会话不存在，请重启服务器实例。当前会话: ${listSessions.output}`);
       }
 
-      // 转义命令中的特殊字符
-      // 需要转义单引号，因为外层使用单引号
-      const escapedCommand = command.replace(/'/g, "'\"'\"'");
+      // 转义到 Bash 的 $'...'
+      // 1) 把实际换行/回车/Tab 转成转义序列
+      // 2) 反斜杠要先转义
+      // 3) 单引号在 $'...' 里需要用 \' 表示
+      function toAnsiCString(s) {
+        return s
+          .replace(/\\/g, '\\\\') // 先转义反斜杠
+          .replace(/\r/g, '\\r')
+          .replace(/\n/g, '\\n')
+          .replace(/\t/g, '\\t')
+          .replace(/'/g, "\\'");  // 再转义单引号
+      }
 
-      // 使用方法2: su - steam -c 'screen -S gmod-server -X stuff "命令"$'\r''
-      const screenCommand = `su - ${steamUser} -c 'screen -S ${sessionName} -X stuff "${escapedCommand}"$'\\r''`;
+      // 这里的 command 是你想发到 screen 的原始命令，例如：
+      // const command = "say hello\n  from method 2";
+      const escapedCommand = toAnsiCString(command);
+
+      // 使用方法： su -s /bin/bash steam -c "screen -S gmod-server -X stuff $'... \r'"
+      const screenCommand =
+        `su -s /bin/bash ${steamUser} -c "screen -S ${sessionName} -X stuff $'${escapedCommand}\\r'"`;
 
       console.log('[execCommand] 发送命令:', command);
       console.log('[execCommand] 执行 shell:', screenCommand);
@@ -688,6 +702,7 @@ export class InstancesService {
         screenCommand,
         { detach: false }
       );
+
 
       return { output: `命令已发送: ${command}` };
     } catch (error) {
