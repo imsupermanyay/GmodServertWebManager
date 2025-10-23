@@ -212,4 +212,100 @@ export class InstancesController {
   deleteFile(@Param('id') id: string, @Query('path') path: string, @Request() req) {
     return this.instancesService.deleteFile(+id, path, req.user.id, req.user.role);
   }
+
+  // ============================================
+  // Data 目录管理接口 (新增)
+  // ============================================
+
+  @Get(':id/data-files')
+  listDataFiles(@Param('id') id: string, @Query('path') path: string, @Request() req) {
+    return this.instancesService.listDataFiles(+id, path || '', req.user.id, req.user.role);
+  }
+
+  @Post(':id/data-files/upload')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    }
+  }))
+  uploadDataFile(
+    @Param('id') id: string,
+    @Query('path') path: string,
+    @UploadedFile() file: any,
+    @Request() req
+  ) {
+    if (!file) {
+      throw new BadRequestException('请选择要上传的文件');
+    }
+    return this.instancesService.uploadDataFile(+id, path || '', file, req.user.id, req.user.role);
+  }
+
+  @Post(':id/data-files/upload-folder')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB per file
+    }
+  }))
+  uploadDataFileToFolder(
+    @Param('id') id: string,
+    @Query('path') path: string,
+    @Query('relativePath') relativePath: string,
+    @UploadedFile() file: any,
+    @Request() req
+  ) {
+    if (!file) {
+      throw new BadRequestException('请选择要上传的文件');
+    }
+    return this.instancesService.uploadDataFileToFolder(+id, path || '', relativePath || '', file, req.user.id, req.user.role);
+  }
+
+  @Get(':id/data-files/download')
+  async downloadDataFile(
+    @Param('id') id: string,
+    @Query('path') path: string,
+    @Request() req,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const result = await this.instancesService.downloadDataFile(+id, path, req.user.id, req.user.role);
+    res.set({
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(result.filename)}"`,
+    });
+    return new StreamableFile(result.stream);
+  }
+
+  @Get(':id/data-files/download-folder')
+  async downloadDataFolder(
+    @Param('id') id: string,
+    @Query('path') path: string,
+    @Request() req,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const result = await this.instancesService.downloadDataFolder(+id, path, req.user.id, req.user.role);
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(result.filename)}"`,
+    });
+    return new StreamableFile(result.stream);
+  }
+
+  @Post(':id/data-files/download-multiple')
+  async downloadMultipleData(
+    @Param('id') id: string,
+    @Body() body: { paths: string[] },
+    @Request() req,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const result = await this.instancesService.downloadMultipleData(+id, body.paths, req.user.id, req.user.role);
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(result.filename)}"`,
+    });
+    return new StreamableFile(result.stream);
+  }
+
+  @Delete(':id/data-files')
+  deleteDataFile(@Param('id') id: string, @Query('path') path: string, @Request() req) {
+    return this.instancesService.deleteDataFile(+id, path, req.user.id, req.user.role);
+  }
 }

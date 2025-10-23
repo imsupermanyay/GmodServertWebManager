@@ -68,6 +68,13 @@
             文件管理
           </button>
           <button
+            @click="openDataManager"
+            :disabled="!instanceData"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 hover:border-amber-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            Data 管理
+          </button>
+          <button
             @click="openSyncLogsDialog"
             :disabled="!instanceData || !instanceData.gamemodeName"
             class="px-4 py-2 text-sm font-medium rounded-lg border border-cyan-400/40 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 hover:border-cyan-300/60 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
@@ -606,6 +613,212 @@
       </div>
     </div>
 
+    <!-- Data 管理模态框 -->
+    <div v-if="showDataManagerModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div class="bg-slate-900 rounded-2xl border border-white/10 w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl shadow-black/50">
+        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+          <h3 class="text-xl font-bold text-white">Data 管理 - 数据目录</h3>
+          <button @click="showDataManagerModal = false" class="text-slate-400 hover:text-white transition">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="overflow-y-auto max-h-[calc(90vh-200px)] scroll-sleek">
+          <div class="p-6">
+            <!-- 当前路径 -->
+            <div class="mb-4 bg-slate-800/50 border border-white/5 rounded-lg px-4 py-2 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                <span class="text-sm text-slate-300 font-mono">{{ currentDataPath || '/' }}</span>
+              </div>
+              <button
+                v-if="currentDataPath"
+                @click="navigateDataUp"
+                class="px-3 py-1 text-xs font-medium rounded-lg border border-slate-500/40 bg-slate-700/30 text-slate-200 hover:bg-slate-700/50 hover:border-slate-400/60 transition"
+              >
+                返回上级
+              </button>
+            </div>
+
+            <!-- 工具栏 -->
+            <div class="mb-4 flex flex-wrap items-center gap-3">
+              <!-- 上传按钮组 -->
+              <div class="flex items-center gap-2">
+                <input type="file" ref="dataFileInput" @change="handleDataFileSelect" multiple class="hidden" />
+                <input type="file" ref="dataFolderInput" @change="handleDataFolderSelect" webkitdirectory directory multiple class="hidden" />
+
+                <button
+                  @click="$refs.dataFileInput.click()"
+                  class="px-3 py-2 text-sm font-medium rounded-lg border border-blue-400/40 bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 hover:border-blue-300/70 hover:text-white transition flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  上传文件
+                </button>
+
+                <button
+                  @click="$refs.dataFolderInput.click()"
+                  class="px-3 py-2 text-sm font-medium rounded-lg border border-purple-400/40 bg-purple-500/20 text-purple-200 hover:bg-purple-500/30 hover:border-purple-300/70 hover:text-white transition flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  上传文件夹
+                </button>
+              </div>
+
+              <!-- 全选按钮 -->
+              <button
+                v-if="dataFileList.length > 0"
+                @click="toggleDataSelectAll"
+                class="px-3 py-2 text-sm font-medium rounded-lg border border-cyan-400/40 bg-cyan-500/20 text-cyan-200 hover:bg-cyan-500/30 hover:border-cyan-300/70 hover:text-white transition flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                {{ selectedDataFiles.length === dataFileList.length ? '取消全选' : '全选' }}
+              </button>
+
+              <!-- 多选操作按钮组 -->
+              <div v-if="selectedDataFiles.length > 0" class="flex items-center gap-2 ml-auto">
+                <span class="text-sm text-slate-300">已选择 {{ selectedDataFiles.length }} 项</span>
+                <button
+                  @click="downloadDataSelected"
+                  class="px-3 py-2 text-sm font-medium rounded-lg border border-emerald-400/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30 hover:border-emerald-300/70 hover:text-white transition"
+                >
+                  下载选中
+                </button>
+                <button
+                  @click="deleteDataSelected"
+                  class="px-3 py-2 text-sm font-medium rounded-lg border border-rose-400/40 bg-rose-500/20 text-rose-200 hover:bg-rose-500/30 hover:border-rose-300/70 hover:text-white transition"
+                >
+                  删除选中
+                </button>
+                <button
+                  @click="clearDataSelection"
+                  class="px-3 py-2 text-sm font-medium rounded-lg border border-slate-500/40 bg-slate-700/30 text-slate-200 hover:bg-slate-700/50 hover:border-slate-400/60 transition"
+                >
+                  取消选择
+                </button>
+              </div>
+            </div>
+
+            <!-- 上传进度提示 -->
+            <div v-if="uploadingDataFiles.length > 0" class="mb-4 bg-blue-500/10 border border-blue-400/40 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-blue-200">正在上传文件...</span>
+                <span class="text-xs text-blue-300">{{ uploadDataProgress }} / {{ uploadingDataFiles.length }}</span>
+              </div>
+              <div class="w-full bg-slate-800 rounded-full h-2 mb-2">
+                <div
+                  class="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                  :style="{ width: `${(uploadDataProgress / uploadingDataFiles.length) * 100}%` }"
+                ></div>
+              </div>
+              <div class="text-xs text-slate-400 max-h-20 overflow-y-auto">
+                <div v-for="(file, idx) in uploadingDataFiles" :key="idx" class="flex items-center gap-2 py-1">
+                  <svg v-if="idx < uploadDataProgress" class="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                  </svg>
+                  <svg v-else-if="idx === uploadDataProgress" class="w-3 h-3 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <svg v-else class="w-3 h-3 text-slate-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clip-rule="evenodd" />
+                  </svg>
+                  <span :class="idx < uploadDataProgress ? 'text-green-300' : idx === uploadDataProgress ? 'text-blue-300' : 'text-slate-400'">
+                    {{ file.name }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 文件列表 - 网格布局 -->
+            <div v-if="isLoadingDataFiles" class="text-center py-12 text-slate-400">
+              <div class="h-8 w-8 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-400 mx-auto mb-4"></div>
+              加载中...
+            </div>
+            <div v-else-if="dataFileList.length === 0" class="text-center py-12 text-slate-400">
+              <svg class="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              <p class="text-sm">目录为空</p>
+            </div>
+            <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              <div
+                v-for="file in dataFileList"
+                :key="file.name"
+                @click="handleDataFileClick(file)"
+                :class="[
+                  'relative bg-slate-800/50 border rounded-lg p-4 cursor-pointer transition-all select-none',
+                  isDataFileSelected(file)
+                    ? 'border-blue-400 bg-blue-500/20 ring-2 ring-blue-400/50'
+                    : 'border-white/5 hover:border-blue-400/40 hover:bg-slate-800/70'
+                ]"
+              >
+                <!-- 选中标记 -->
+                <div
+                  class="absolute top-2 right-2 z-10"
+                  @click.stop="toggleDataFileSelection(file)"
+                >
+                  <div
+                    :class="[
+                      'w-5 h-5 rounded border-2 flex items-center justify-center transition-all hover:scale-110',
+                      isDataFileSelected(file)
+                        ? 'bg-blue-500 border-blue-500'
+                        : 'bg-slate-700/50 border-slate-600 hover:border-blue-400'
+                    ]"
+                  >
+                    <svg v-if="isDataFileSelected(file)" class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+
+                <!-- 文件图标 -->
+                <div class="flex flex-col items-center mb-2 pointer-events-none">
+                  <svg v-if="file.isDirectory" class="w-12 h-12 text-amber-400 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                  </svg>
+                  <svg v-else class="w-12 h-12 text-slate-400 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+
+                <!-- 文件名 -->
+                <p
+                  class="text-xs font-medium text-center text-white truncate mb-1 pointer-events-none"
+                  :title="file.name"
+                >
+                  {{ file.name }}
+                </p>
+
+                <!-- 文件信息 -->
+                <p class="text-[10px] text-center text-slate-400 pointer-events-none">
+                  {{ file.isDirectory ? '文件夹' : formatFileSize(file.size) }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-white/10 flex justify-end">
+          <button
+            @click="showDataManagerModal = false"
+            class="px-5 py-2 text-sm font-medium rounded-lg border border-slate-500/40 bg-slate-700/30 text-slate-200 hover:bg-slate-700/50 hover:border-slate-400/60 transition"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 同步日志对话框 -->
     <div
       v-if="showSyncLogsDialog"
@@ -790,6 +1003,16 @@ const folderInput = ref(null)
 const uploadProgress = ref(0)
 const uploadingFiles = ref([])
 const selectedFiles = ref([])
+// Data 管理相关状态
+const showDataManagerModal = ref(false)
+const dataFileList = ref([])
+const currentDataPath = ref('')
+const isLoadingDataFiles = ref(false)
+const dataFileInput = ref(null)
+const dataFolderInput = ref(null)
+const uploadDataProgress = ref(0)
+const uploadingDataFiles = ref([])
+const selectedDataFiles = ref([])
 const containerActionLoading = ref(false)
 const serverActionLoading = ref(false)
 const showScreenOverlay = ref(false)
@@ -1793,6 +2016,306 @@ const deleteSelected = async () => {
 
   clearSelection()
   await loadFiles()
+}
+
+// ============================================
+// Data 管理相关方法 (与文件管理完全相同的逻辑，只是调用不同的 API)
+// ============================================
+
+const openDataManager = async () => {
+  if (!instanceData.value) return
+
+  try {
+    currentDataPath.value = ''
+    showDataManagerModal.value = true
+    await loadDataFiles()
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '打开 Data 管理器失败',
+      { title: 'Data 管理' }
+    )
+  }
+}
+
+const loadDataFiles = async () => {
+  isLoadingDataFiles.value = true
+  try {
+    const response = await instancesAPI.listDataFiles(props.id, currentDataPath.value)
+    dataFileList.value = response.data.files
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || '加载文件列表失败',
+      { title: 'Data 管理' }
+    )
+  } finally {
+    isLoadingDataFiles.value = false
+  }
+}
+
+const navigateDataInto = (dirname) => {
+  currentDataPath.value = currentDataPath.value ? `${currentDataPath.value}/${dirname}` : dirname
+  loadDataFiles()
+}
+
+const navigateDataUp = () => {
+  const parts = currentDataPath.value.split('/')
+  parts.pop()
+  currentDataPath.value = parts.join('/')
+  loadDataFiles()
+}
+
+const handleDataFileSelect = async (event) => {
+  const files = Array.from(event.target.files || [])
+  if (files.length === 0) return
+
+  // 检查文件大小
+  const maxSize = 10 * 1024 * 1024 // 10MB
+  const oversizedFiles = files.filter(f => f.size > maxSize)
+
+  if (oversizedFiles.length > 0) {
+    notifications.error(
+      `以下文件超过 10MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
+      { title: 'Data 文件上传' }
+    )
+    if (dataFileInput.value) {
+      dataFileInput.value.value = ''
+    }
+    return
+  }
+
+  // 上传文件
+  await uploadMultipleDataFiles(files, false)
+  if (dataFileInput.value) {
+    dataFileInput.value.value = ''
+  }
+}
+
+const handleDataFolderSelect = async (event) => {
+  const files = Array.from(event.target.files || [])
+  if (files.length === 0) return
+
+  // 检查每个文件大小
+  const maxSize = 10 * 1024 * 1024 // 10MB
+  const oversizedFiles = files.filter(f => f.size > maxSize)
+
+  if (oversizedFiles.length > 0) {
+    notifications.error(
+      `以下文件超过 10MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
+      { title: 'Data 文件上传' }
+    )
+    if (dataFolderInput.value) {
+      dataFolderInput.value.value = ''
+    }
+    return
+  }
+
+  // 上传文件夹
+  await uploadMultipleDataFiles(files, true)
+  if (dataFolderInput.value) {
+    dataFolderInput.value.value = ''
+  }
+}
+
+const uploadMultipleDataFiles = async (files, isFolder) => {
+  uploadingDataFiles.value = files
+  uploadDataProgress.value = 0
+  let successCount = 0
+  let failCount = 0
+
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+
+      try {
+        if (isFolder) {
+          // 文件夹上传，保持目录结构
+          const relativePath = file.webkitRelativePath || file.name
+          await instancesAPI.uploadDataFileToFolder(props.id, currentDataPath.value, relativePath, file)
+        } else {
+          // 普通文件上传
+          await instancesAPI.uploadDataFile(props.id, currentDataPath.value, file)
+        }
+        successCount++
+      } catch (error) {
+        console.error(`上传文件 ${file.name} 失败:`, error)
+        failCount++
+      }
+
+      uploadDataProgress.value = i + 1
+    }
+
+    if (failCount === 0) {
+      notifications.success(`成功上传 ${successCount} 个文件`)
+    } else {
+      notifications.warning(
+        `上传完成: 成功 ${successCount} 个, 失败 ${failCount} 个`,
+        { title: 'Data 文件上传' }
+      )
+    }
+
+    await loadDataFiles()
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || 'Data 文件上传失败',
+      { title: 'Data 文件上传' }
+    )
+  } finally {
+    uploadingDataFiles.value = []
+    uploadDataProgress.value = 0
+  }
+}
+
+// Data 多选相关
+const toggleDataFileSelection = (file) => {
+  const index = selectedDataFiles.value.findIndex(f => f.name === file.name)
+  if (index > -1) {
+    selectedDataFiles.value.splice(index, 1)
+  } else {
+    selectedDataFiles.value.push(file)
+  }
+}
+
+const isDataFileSelected = (file) => {
+  return selectedDataFiles.value.some(f => f.name === file.name)
+}
+
+const clearDataSelection = () => {
+  selectedDataFiles.value = []
+}
+
+// Data 全选/取消全选
+const toggleDataSelectAll = () => {
+  if (selectedDataFiles.value.length === dataFileList.value.length) {
+    // 当前是全选状态,取消全选
+    clearDataSelection()
+  } else {
+    // 全选所有文件
+    selectedDataFiles.value = [...dataFileList.value]
+  }
+}
+
+// 点击 Data 文件卡片 -> 直接打开文件夹或下载文件
+const handleDataFileClick = (file) => {
+  if (file.isDirectory) {
+    // 点击文件夹 -> 进入文件夹
+    navigateDataInto(file.name)
+  }
+}
+
+// 下载单个 Data 文件或文件夹
+const downloadSingleDataFile = async (filename, isDirectory) => {
+  try {
+    const filePath = currentDataPath.value ? `${currentDataPath.value}/${filename}` : filename
+
+    if (isDirectory) {
+      const response = await instancesAPI.downloadDataFolder(props.id, filePath)
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `${filename}.zip`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      notifications.success('Data 文件夹下载成功')
+    } else {
+      const response = await instancesAPI.downloadDataFile(props.id, filePath)
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      notifications.success('Data 文件下载成功')
+    }
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || 'Data 下载失败',
+      { title: 'Data 下载' }
+    )
+  }
+}
+
+// 下载选中的 Data 文件/文件夹
+const downloadDataSelected = async () => {
+  if (selectedDataFiles.value.length === 0) return
+
+  try {
+    const paths = selectedDataFiles.value.map(file =>
+      currentDataPath.value ? `${currentDataPath.value}/${file.name}` : file.name
+    )
+
+    const response = await instancesAPI.downloadMultipleData(props.id, paths)
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', 'data-files.zip')
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+
+    notifications.success(`成功下载 ${selectedDataFiles.value.length} 项`)
+    clearDataSelection()
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || 'Data 批量下载失败',
+      { title: 'Data 下载' }
+    )
+  }
+}
+
+// 删除单个 Data 文件或文件夹
+const deleteSingleDataFile = async (filename, isDirectory) => {
+  const type = isDirectory ? '文件夹' : '文件'
+  if (!confirm(`确定要删除这个 Data ${type}吗？${isDirectory ? '文件夹下的所有内容都将被删除。' : ''}`)) return
+
+  try {
+    const filePath = currentDataPath.value ? `${currentDataPath.value}/${filename}` : filename
+    await instancesAPI.deleteDataFile(props.id, filePath)
+    notifications.success(`Data ${type}删除成功`)
+    await loadDataFiles()
+  } catch (error) {
+    notifications.error(
+      error.response?.data?.message || `Data ${type}删除失败`,
+      { title: 'Data 删除' }
+    )
+  }
+}
+
+// 删除选中的 Data 文件/文件夹
+const deleteDataSelected = async () => {
+  if (selectedDataFiles.value.length === 0) return
+
+  if (!confirm(`确定要删除选中的 ${selectedDataFiles.value.length} 项 Data 文件吗？此操作不可恢复。`)) return
+
+  let successCount = 0
+  let failCount = 0
+
+  for (const file of selectedDataFiles.value) {
+    try {
+      const filePath = currentDataPath.value ? `${currentDataPath.value}/${file.name}` : file.name
+      await instancesAPI.deleteDataFile(props.id, filePath)
+      successCount++
+    } catch (error) {
+      console.error(`删除 Data 文件 ${file.name} 失败:`, error)
+      failCount++
+    }
+  }
+
+  if (failCount === 0) {
+    notifications.success(`成功删除 ${successCount} 项`)
+  } else {
+    notifications.warning(
+      `删除完成: 成功 ${successCount} 项, 失败 ${failCount} 项`,
+      { title: 'Data 批量删除' }
+    )
+  }
+
+  clearDataSelection()
+  await loadDataFiles()
 }
 
 // 打开同步日志对话框

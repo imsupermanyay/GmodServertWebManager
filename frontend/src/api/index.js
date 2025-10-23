@@ -127,7 +127,38 @@ export const instancesAPI = {
     { paths },
     { responseType: 'blob' }
   ),
-  deleteFile: (id, path) => api.delete(`/instances/${id}/files`, { params: { path } })
+  deleteFile: (id, path) => api.delete(`/instances/${id}/files`, { params: { path } }),
+  // Data 目录管理
+  listDataFiles: (id, path) => api.get(`/instances/${id}/data-files`, { params: { path } }),
+  uploadDataFile: (id, path, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/instances/${id}/data-files/upload`, formData, {
+      params: { path },
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  uploadDataFileToFolder: (id, path, relativePath, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/instances/${id}/data-files/upload-folder`, formData, {
+      params: { path, relativePath },
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  downloadDataFile: (id, path) => api.get(`/instances/${id}/data-files/download`, {
+    params: { path },
+    responseType: 'blob'
+  }),
+  downloadDataFolder: (id, path) => api.get(`/instances/${id}/data-files/download-folder`, {
+    params: { path },
+    responseType: 'blob'
+  }),
+  downloadMultipleData: (id, paths) => api.post(`/instances/${id}/data-files/download-multiple`,
+    { paths },
+    { responseType: 'blob' }
+  ),
+  deleteDataFile: (id, path) => api.delete(`/instances/${id}/data-files`, { params: { path } })
 }
 
 // CFG 模板相关

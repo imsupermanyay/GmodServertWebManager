@@ -1003,6 +1003,217 @@ export class InstancesService {
       throw new InternalServerErrorException('删除失败: ' + error.message);
     }
   }
+
+  // ============================================
+  // Data 目录管理方法 (新增)
+  // ============================================
+
+  private async getDataDir(instanceId: number): Promise<string> {
+    const instance = await this.instancesRepository.findOne({ where: { id: instanceId } });
+    if (!instance) {
+      throw new NotFoundException('实例不存在');
+    }
+    return path.join(this.dataRoot, `${instance.name}_data`);
+  }
+
+  async listDataFiles(instanceId: number, relativePath: string, userId: number, userRole: UserRole) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    const dataDir = await this.getDataDir(instanceId);
+    const sanitizedPath = this.sanitizePath(relativePath);
+    const fullPath = path.join(dataDir, sanitizedPath);
+
+    try {
+      const entries = await fs.readdir(fullPath, { withFileTypes: true });
+      const files = await Promise.all(
+        entries.map(async (entry) => {
+          const entryPath = path.join(fullPath, entry.name);
+          const stats = await fs.stat(entryPath);
+          return {
+            name: entry.name,
+            isDirectory: entry.isDirectory(),
+            size: stats.size,
+            modifiedAt: stats.mtime,
+          };
+        })
+      );
+      return { files, currentPath: sanitizedPath };
+    } catch (error) {
+      throw new InternalServerErrorException('读取目录失败: ' + error.message);
+    }
+  }
+
+  async uploadDataFile(
+    instanceId: number,
+    relativePath: string,
+    file: any,
+    userId: number,
+    userRole: UserRole
+  ) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    if (!file || !file.buffer) {
+      throw new BadRequestException('文件内容为空');
+    }
+
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('文件大小不能超过 10MB');
+    }
+
+    const dataDir = await this.getDataDir(instanceId);
+    const sanitizedPath = this.sanitizePath(relativePath);
+    const targetDir = path.join(dataDir, sanitizedPath);
+    const targetPath = path.join(targetDir, file.originalname);
+
+    try {
+      await fs.mkdir(targetDir, { recursive: true });
+      await fs.writeFile(targetPath, file.buffer);
+      return { message: '文件上传成功', filename: file.originalname };
+    } catch (error) {
+      throw new InternalServerErrorException('文件上传失败: ' + error.message);
+    }
+  }
+
+  async uploadDataFileToFolder(
+    instanceId: number,
+    basePath: string,
+    fileRelativePath: string,
+    file: any,
+    userId: number,
+    userRole: UserRole
+  ) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    if (!file || !file.buffer) {
+      throw new BadRequestException('文件内容为空');
+    }
+
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('文件大小不能超过 10MB');
+    }
+
+    const dataDir = await this.getDataDir(instanceId);
+    const sanitizedBasePath = this.sanitizePath(basePath);
+    const sanitizedRelativePath = this.sanitizePath(fileRelativePath);
+    const fullRelativePath = path.join(sanitizedBasePath, sanitizedRelativePath);
+    const targetPath = path.join(dataDir, fullRelativePath);
+    const targetDir = path.dirname(targetPath);
+
+    try {
+      await fs.mkdir(targetDir, { recursive: true });
+      await fs.writeFile(targetPath, file.buffer);
+      return { message: '文件上传成功', filename: path.basename(targetPath) };
+    } catch (error) {
+      throw new InternalServerErrorException('文件上传失败: ' + error.message);
+    }
+  }
+
+  async downloadDataFile(instanceId: number, relativePath: string, userId: number, userRole: UserRole) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    const dataDir = await this.getDataDir(instanceId);
+    const sanitizedPath = this.sanitizePath(relativePath);
+    const fullPath = path.join(dataDir, sanitizedPath);
+
+    try {
+      const stats = await fs.stat(fullPath);
+      if (stats.isDirectory()) {
+        throw new BadRequestException('不能下载目录，请使用文件夹下载功能');
+      }
+
+      const filename = path.basename(fullPath);
+      const stream = createReadStream(fullPath);
+      return { stream, filename };
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        throw new NotFoundException('文件不存在');
+      }
+      throw new InternalServerErrorException('文件下载失败: ' + error.message);
+    }
+  }
+
+  async downloadDataFolder(instanceId: number, relativePath: string, userId: number, userRole: UserRole) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    const dataDir = await this.getDataDir(instanceId);
+    const sanitizedPath = this.sanitizePath(relativePath);
+    const fullPath = path.join(dataDir, sanitizedPath);
+
+    try {
+      const stats = await fs.stat(fullPath);
+      if (!stats.isDirectory()) {
+        throw new BadRequestException('只能打包下载目录');
+      }
+
+      const folderName = path.basename(fullPath);
+      const archive = archiver('zip', {
+        zlib: { level: 9 }
+      });
+
+      archive.directory(fullPath, false);
+      archive.finalize();
+
+      return { stream: archive, filename: `${folderName}.zip` };
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        throw new NotFoundException('文件夹不存在');
+      }
+      throw new InternalServerErrorException('文件夹下载失败: ' + error.message);
+    }
+  }
+
+  async downloadMultipleData(instanceId: number, paths: string[], userId: number, userRole: UserRole) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    const dataDir = await this.getDataDir(instanceId);
+    const archive = archiver('zip', {
+      zlib: { level: 9 }
+    });
+
+    try {
+      for (const relativePath of paths) {
+        const sanitizedPath = this.sanitizePath(relativePath);
+        const fullPath = path.join(dataDir, sanitizedPath);
+        const stats = await fs.stat(fullPath);
+
+        if (stats.isDirectory()) {
+          archive.directory(fullPath, path.basename(fullPath));
+        } else {
+          archive.file(fullPath, { name: path.basename(fullPath) });
+        }
+      }
+
+      archive.finalize();
+      return { stream: archive, filename: 'data_files.zip' };
+    } catch (error) {
+      throw new InternalServerErrorException('批量下载失败: ' + error.message);
+    }
+  }
+
+  async deleteDataFile(instanceId: number, relativePath: string, userId: number, userRole: UserRole) {
+    await this.checkPermission(instanceId, userId, userRole);
+
+    const dataDir = await this.getDataDir(instanceId);
+    const sanitizedPath = this.sanitizePath(relativePath);
+    const fullPath = path.join(dataDir, sanitizedPath);
+
+    try {
+      const stats = await fs.stat(fullPath);
+      if (stats.isDirectory()) {
+        await fs.rmdir(fullPath, { recursive: true });
+      } else {
+        await fs.unlink(fullPath);
+      }
+      return { message: '删除成功' };
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        throw new NotFoundException('文件不存在');
+      }
+      throw new InternalServerErrorException('删除失败: ' + error.message);
+    }
+  }
 }
 
 
