@@ -30,6 +30,7 @@ export class InstancesService {
 
   private readonly hostInstancesRoot = process.env.GMOD_INSTANCE_ROOT || '/opt/gmodserver';
   private readonly gamemodeRoot = process.env.GMOD_GAMEMODE_ROOT || '/opt/allgamemodes';
+  private readonly dataRoot = process.env.GMOD_DATA_ROOT || '/opt/allserverdata';
 
   private sanitizeIdentifier(value: string | undefined, label: string): string {
     const trimmed = (value ?? '').trim();
@@ -217,6 +218,10 @@ export class InstancesService {
       await this.dockerService.createHostDirectory(createInstanceDto.hostDirectory);
     }
 
+    // 创建数据目录 (每个实例都需要)
+    const dataHostDir = path.join(this.dataRoot, `${createInstanceDto.name}_data`);
+    await this.dockerService.createHostDirectory(dataHostDir);
+
     // 准备 Docker 容器配置（简化版：只配置目录挂载和启动命令）
     const dockerOptions: any = {};
 
@@ -224,6 +229,8 @@ export class InstancesService {
     const binds: string[] = [
       '/etc/localtime:/etc/localtime:ro',
       '/etc/timezone:/etc/timezone:ro',
+      // 挂载数据目录 (固定挂载到 /opt/steam/garrysmod/data)
+      `${dataHostDir}:/opt/steam/garrysmod/data`,
     ];
 
     if (createInstanceDto.hostDirectory && createInstanceDto.containerDirectory) {
@@ -397,6 +404,15 @@ export class InstancesService {
     // 删除宿主机目录
     if (instance.hostDirectory) {
       await this.dockerService.removeHostDirectory(instance.hostDirectory);
+    }
+
+    // 删除数据目录
+    const dataHostDir = path.join(this.dataRoot, `${instance.name}_data`);
+    try {
+      await this.dockerService.removeHostDirectory(dataHostDir);
+    } catch (error) {
+      console.error(`删除数据目录失败: ${dataHostDir}`, error);
+      // 不抛出异常,允许继续删除实例
     }
   }
 
