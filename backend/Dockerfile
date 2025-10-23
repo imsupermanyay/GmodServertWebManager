@@ -19,7 +19,7 @@ RUN rm -rf /etc/apt/sources.list.d/* && \
   dpkg --add-architecture i386 && \
   apt-get update && \
   apt-get install -y --no-install-recommends --no-install-suggests \
-  ca-certificates curl wget tar xz-utils gosu iproute2 locales procps \
+  ca-certificates curl wget tar xz-utils gosu iproute2 locales procps screen \
   lib32gcc-s1 lib32stdc++6 libc6:i386 libcurl4:i386 libncurses5:i386 \
   libtinfo5:i386 libnss3:i386 && \
   rm -rf /var/lib/apt/lists/*

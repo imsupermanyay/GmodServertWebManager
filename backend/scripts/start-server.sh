@@ -32,12 +32,6 @@ if [[ -n "${START_VALUE}" ]]; then
   # 使用 screen 在后台运行服务器
   SESSION_NAME="gmod-server"
 
-  # 确保 screen 已安装
-  if ! command -v screen &> /dev/null; then
-    printf '[start-server] 正在安装 screen...\n'
-    apt-get update && apt-get install -y screen
-  fi
-
   # 清理死掉的 screen 会话
   if [[ "$(id -u)" -eq 0 ]]; then
     gosu "${STEAM_USER}" screen -wipe 2>/dev/null || true
