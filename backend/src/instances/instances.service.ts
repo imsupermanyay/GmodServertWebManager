@@ -653,58 +653,41 @@ export class InstancesService {
 
     // 通过 screen 发送命令到 GMOD 服务器
     const sessionName = 'gmod-server';
-    try {
-      // 检查 screen 会话是否存在，并获取详细信息
-      const listSessions = await this.dockerService.execCommand(
-        instance.dockerId,
-        'screen -ls',
-        { detach: false }
-      );
-      console.log('[execCommand] Screen 会话列表:', listSessions.output);
+    const steamUser = 'steam';
 
+    try {
+      // 使用 steam 用户检查 screen 会话是否存在
       const checkSession = await this.dockerService.execCommand(
         instance.dockerId,
-        `screen -ls | grep -q "${sessionName}" && echo "exists" || echo "not_exists"`,
+        `su - ${steamUser} -c 'screen -ls | grep -q "${sessionName}" && echo "exists" || echo "not_exists"'`,
         { detach: false }
       );
 
       if (!checkSession.output?.trim().includes('exists')) {
+        // 获取详细的会话列表用于调试
+        const listSessions = await this.dockerService.execCommand(
+          instance.dockerId,
+          `su - ${steamUser} -c 'screen -ls'`,
+          { detach: false }
+        );
         throw new ConflictException(`服务器会话不存在，请重启服务器实例。当前会话: ${listSessions.output}`);
       }
 
       // 转义命令中的特殊字符
-      const escapedCommand = command.replace(/"/g, '\\"').replace(/\$/g, '\\$');
+      // 需要转义单引号，因为外层使用单引号
+      const escapedCommand = command.replace(/'/g, "'\"'\"'");
 
-      // 使用 screen -X stuff 发送命令
-      // 需要使用正确的用户（steam 用户）
-      // $'\r' 是回车键
-      let screenCommand: string;
+      // 使用方法2: su - steam -c 'screen -S gmod-server -X stuff "命令"$'\r''
+      const screenCommand = `su - ${steamUser} -c 'screen -S ${sessionName} -X stuff "${escapedCommand}"$'\\r''`;
 
-      // 检查 screen 是以哪个用户运行的
-      const whoOwns = await this.dockerService.execCommand(
-        instance.dockerId,
-        `ps aux | grep "SCREEN.*${sessionName}" | grep -v grep | awk '{print $1}'`,
-        { detach: false }
-      );
-      const screenUser = whoOwns.output?.trim() || 'steam';
-      console.log('[execCommand] Screen 运行用户:', screenUser);
+      console.log('[execCommand] 发送命令:', command);
+      console.log('[execCommand] 执行 shell:', screenCommand);
 
-      // 如果 screen 是以其他用户运行，需要切换用户
-      if (screenUser && screenUser !== 'root') {
-        screenCommand = `su - ${screenUser} -c 'screen -S ${sessionName} -X stuff "${escapedCommand}"$'\\r''`;
-      } else {
-        screenCommand = `screen -S ${sessionName} -X stuff "${escapedCommand}"$'\\r'`;
-      }
-
-      console.log('[execCommand] 执行命令:', screenCommand);
-
-      const result = await this.dockerService.execCommand(
+      await this.dockerService.execCommand(
         instance.dockerId,
         screenCommand,
         { detach: false }
       );
-
-      console.log('[execCommand] 命令执行结果:', result.output);
 
       return { output: `命令已发送: ${command}` };
     } catch (error) {
