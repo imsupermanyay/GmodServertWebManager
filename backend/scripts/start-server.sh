@@ -38,6 +38,20 @@ if [[ -n "${START_VALUE}" ]]; then
     apt-get update && apt-get install -y screen
   fi
 
+  # 清理死掉的 screen 会话
+  if [[ "$(id -u)" -eq 0 ]]; then
+    gosu "${STEAM_USER}" screen -wipe 2>/dev/null || true
+  else
+    screen -wipe 2>/dev/null || true
+  fi
+
+  # 如果同名会话已存在，先终止它
+  if [[ "$(id -u)" -eq 0 ]]; then
+    gosu "${STEAM_USER}" screen -S ${SESSION_NAME} -X quit 2>/dev/null || true
+  else
+    screen -S ${SESSION_NAME} -X quit 2>/dev/null || true
+  fi
+
   # 启动服务器在 screen 会话中
   if [[ "$(id -u)" -eq 0 ]]; then
     gosu "${STEAM_USER}" bash -lc "cd \"${STEAMAPP_DIR}\" && screen -dmS ${SESSION_NAME} ./srcds_run ${START_VALUE}"
