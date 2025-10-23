@@ -654,7 +654,14 @@ export class InstancesService {
     // 通过 screen 发送命令到 GMOD 服务器
     const sessionName = 'gmod-server';
     try {
-      // 检查 screen 会话是否存在
+      // 检查 screen 会话是否存在，并获取详细信息
+      const listSessions = await this.dockerService.execCommand(
+        instance.dockerId,
+        'screen -ls',
+        { detach: false }
+      );
+      console.log('[execCommand] Screen 会话列表:', listSessions.output);
+
       const checkSession = await this.dockerService.execCommand(
         instance.dockerId,
         `screen -ls | grep -q "${sessionName}" && echo "exists" || echo "not_exists"`,
@@ -662,24 +669,46 @@ export class InstancesService {
       );
 
       if (!checkSession.output?.trim().includes('exists')) {
-        throw new ConflictException('服务器会话不存在，请重启服务器实例');
+        throw new ConflictException(`服务器会话不存在，请重启服务器实例。当前会话: ${listSessions.output}`);
       }
 
       // 转义命令中的特殊字符
-      const escapedCommand = command.replace(/"/g, '\\"');
+      const escapedCommand = command.replace(/"/g, '\\"').replace(/\$/g, '\\$');
 
       // 使用 screen -X stuff 发送命令
-      // ^M 是回车键，让命令执行
-      const screenCommand = `screen -S ${sessionName} -X stuff "${escapedCommand}^M"`;
+      // 需要使用正确的用户（steam 用户）
+      // $'\r' 是回车键
+      let screenCommand: string;
 
-      await this.dockerService.execCommand(
+      // 检查 screen 是以哪个用户运行的
+      const whoOwns = await this.dockerService.execCommand(
+        instance.dockerId,
+        `ps aux | grep "SCREEN.*${sessionName}" | grep -v grep | awk '{print $1}'`,
+        { detach: false }
+      );
+      const screenUser = whoOwns.output?.trim() || 'steam';
+      console.log('[execCommand] Screen 运行用户:', screenUser);
+
+      // 如果 screen 是以其他用户运行，需要切换用户
+      if (screenUser && screenUser !== 'root') {
+        screenCommand = `su - ${screenUser} -c 'screen -S ${sessionName} -X stuff "${escapedCommand}"$'\\r''`;
+      } else {
+        screenCommand = `screen -S ${sessionName} -X stuff "${escapedCommand}"$'\\r'`;
+      }
+
+      console.log('[execCommand] 执行命令:', screenCommand);
+
+      const result = await this.dockerService.execCommand(
         instance.dockerId,
         screenCommand,
         { detach: false }
       );
 
+      console.log('[execCommand] 命令执行结果:', result.output);
+
       return { output: `命令已发送: ${command}` };
     } catch (error) {
+      console.error('[execCommand] 发送命令失败:', error);
       throw new ConflictException(`发送命令失败: ${error.message}`);
     }
   }
