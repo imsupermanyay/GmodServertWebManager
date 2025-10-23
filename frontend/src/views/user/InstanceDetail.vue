@@ -466,6 +466,16 @@
                 </button>
               </div>
 
+              <!-- 上传选项 -->
+              <label class="inline-flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  v-model="includeRootFolder"
+                  class="rounded border-slate-600 bg-slate-800 text-purple-500 focus:ring-purple-500 focus:ring-offset-0"
+                />
+                <span>保留根文件夹</span>
+              </label>
+
               <!-- 全选按钮 -->
               <button
                 v-if="fileList.length > 0"
@@ -506,7 +516,16 @@
             <div v-if="uploadingFiles.length > 0" class="mb-4 bg-blue-500/10 border border-blue-400/40 rounded-lg p-4">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-sm font-medium text-blue-200">正在上传文件...</span>
-                <span class="text-xs text-blue-300">{{ uploadProgress }} / {{ uploadingFiles.length }}</span>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-blue-300">{{ uploadProgress }} / {{ uploadingFiles.length }}</span>
+                  <button
+                    @click="cancelUpload"
+                    :disabled="uploadCancelled"
+                    class="px-3 py-1 text-xs font-medium rounded-lg border border-rose-400/40 bg-rose-500/20 text-rose-200 hover:bg-rose-500/30 hover:border-rose-300/70 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    {{ uploadCancelled ? '正在取消...' : '取消上传' }}
+                  </button>
+                </div>
               </div>
               <div class="w-full bg-slate-800 rounded-full h-2 mb-2">
                 <div
@@ -672,6 +691,16 @@
                 </button>
               </div>
 
+              <!-- 上传选项 -->
+              <label class="inline-flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  v-model="includeDataRootFolder"
+                  class="rounded border-slate-600 bg-slate-800 text-purple-500 focus:ring-purple-500 focus:ring-offset-0"
+                />
+                <span>保留根文件夹</span>
+              </label>
+
               <!-- 全选按钮 -->
               <button
                 v-if="dataFileList.length > 0"
@@ -712,7 +741,16 @@
             <div v-if="uploadingDataFiles.length > 0" class="mb-4 bg-blue-500/10 border border-blue-400/40 rounded-lg p-4">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-sm font-medium text-blue-200">正在上传文件...</span>
-                <span class="text-xs text-blue-300">{{ uploadDataProgress }} / {{ uploadingDataFiles.length }}</span>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-blue-300">{{ uploadDataProgress }} / {{ uploadingDataFiles.length }}</span>
+                  <button
+                    @click="cancelDataUpload"
+                    :disabled="uploadDataCancelled"
+                    class="px-3 py-1 text-xs font-medium rounded-lg border border-rose-400/40 bg-rose-500/20 text-rose-200 hover:bg-rose-500/30 hover:border-rose-300/70 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    {{ uploadDataCancelled ? '正在取消...' : '取消上传' }}
+                  </button>
+                </div>
               </div>
               <div class="w-full bg-slate-800 rounded-full h-2 mb-2">
                 <div
@@ -1003,6 +1041,8 @@ const folderInput = ref(null)
 const uploadProgress = ref(0)
 const uploadingFiles = ref([])
 const selectedFiles = ref([])
+const uploadCancelled = ref(false)
+const includeRootFolder = ref(false) // 是否包含根目录
 // Data 管理相关状态
 const showDataManagerModal = ref(false)
 const dataFileList = ref([])
@@ -1013,6 +1053,8 @@ const dataFolderInput = ref(null)
 const uploadDataProgress = ref(0)
 const uploadingDataFiles = ref([])
 const selectedDataFiles = ref([])
+const uploadDataCancelled = ref(false)
+const includeDataRootFolder = ref(false) // Data目录是否包含根目录
 const containerActionLoading = ref(false)
 const serverActionLoading = ref(false)
 const showScreenOverlay = ref(false)
@@ -1816,20 +1858,45 @@ const handleFolderSelect = async (event) => {
   }
 }
 
+const cancelUpload = () => {
+  uploadCancelled.value = true
+}
+
 const uploadMultipleFiles = async (files, isFolder) => {
   uploadingFiles.value = files
   uploadProgress.value = 0
+  uploadCancelled.value = false
   let successCount = 0
   let failCount = 0
+  let cancelledCount = 0
 
   try {
     for (let i = 0; i < files.length; i++) {
+      // 检查是否取消
+      if (uploadCancelled.value) {
+        cancelledCount = files.length - i
+        break
+      }
+
       const file = files[i]
 
       try {
         if (isFolder) {
-          // 文件夹上传，保持目录结构
-          const relativePath = file.webkitRelativePath || file.name
+          // 文件夹上传，根据选项决定是否保留根目录
+          let relativePath = file.webkitRelativePath || file.name
+
+          // 如果不包含根目录，去掉第一层文件夹名称
+          if (!includeRootFolder.value) {
+            const pathParts = relativePath.split('/')
+            if (pathParts.length > 1) {
+              // 如果有多层路径，去掉第一层（根文件夹名）
+              relativePath = pathParts.slice(1).join('/')
+            } else {
+              // 如果只有一层，直接使用文件名
+              relativePath = file.name
+            }
+          }
+
           await instancesAPI.uploadFileToFolder(props.id, currentPath.value, relativePath, file)
         } else {
           // 普通文件上传
@@ -1844,7 +1911,12 @@ const uploadMultipleFiles = async (files, isFolder) => {
       uploadProgress.value = i + 1
     }
 
-    if (failCount === 0) {
+    if (uploadCancelled.value) {
+      notifications.warning(
+        `上传已取消: 成功 ${successCount} 个, 失败 ${failCount} 个, 取消 ${cancelledCount} 个`,
+        { title: '文件上传' }
+      )
+    } else if (failCount === 0) {
       notifications.success(`成功上传 ${successCount} 个文件`)
     } else {
       notifications.warning(
@@ -1862,6 +1934,7 @@ const uploadMultipleFiles = async (files, isFolder) => {
   } finally {
     uploadingFiles.value = []
     uploadProgress.value = 0
+    uploadCancelled.value = false
   }
 }
 
@@ -2116,20 +2189,45 @@ const handleDataFolderSelect = async (event) => {
   }
 }
 
+const cancelDataUpload = () => {
+  uploadDataCancelled.value = true
+}
+
 const uploadMultipleDataFiles = async (files, isFolder) => {
   uploadingDataFiles.value = files
   uploadDataProgress.value = 0
+  uploadDataCancelled.value = false
   let successCount = 0
   let failCount = 0
+  let cancelledCount = 0
 
   try {
     for (let i = 0; i < files.length; i++) {
+      // 检查是否取消
+      if (uploadDataCancelled.value) {
+        cancelledCount = files.length - i
+        break
+      }
+
       const file = files[i]
 
       try {
         if (isFolder) {
-          // 文件夹上传，保持目录结构
-          const relativePath = file.webkitRelativePath || file.name
+          // 文件夹上传，根据选项决定是否保留根目录
+          let relativePath = file.webkitRelativePath || file.name
+
+          // 如果不包含根目录，去掉第一层文件夹名称
+          if (!includeDataRootFolder.value) {
+            const pathParts = relativePath.split('/')
+            if (pathParts.length > 1) {
+              // 如果有多层路径，去掉第一层（根文件夹名）
+              relativePath = pathParts.slice(1).join('/')
+            } else {
+              // 如果只有一层，直接使用文件名
+              relativePath = file.name
+            }
+          }
+
           await instancesAPI.uploadDataFileToFolder(props.id, currentDataPath.value, relativePath, file)
         } else {
           // 普通文件上传
@@ -2144,7 +2242,12 @@ const uploadMultipleDataFiles = async (files, isFolder) => {
       uploadDataProgress.value = i + 1
     }
 
-    if (failCount === 0) {
+    if (uploadDataCancelled.value) {
+      notifications.warning(
+        `上传已取消: 成功 ${successCount} 个, 失败 ${failCount} 个, 取消 ${cancelledCount} 个`,
+        { title: 'Data 文件上传' }
+      )
+    } else if (failCount === 0) {
       notifications.success(`成功上传 ${successCount} 个文件`)
     } else {
       notifications.warning(
@@ -2162,6 +2265,7 @@ const uploadMultipleDataFiles = async (files, isFolder) => {
   } finally {
     uploadingDataFiles.value = []
     uploadDataProgress.value = 0
+    uploadDataCancelled.value = false
   }
 }
 
