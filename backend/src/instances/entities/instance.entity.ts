@@ -16,7 +16,7 @@ export class Instance {
   @Column({ nullable: true })
   containerName: string;
 
-  @Column({ nullable: true, default: 'lacledeslan/steamcmd' })
+  @Column({ nullable: true, default: 'gmod-custom' })
   dockerImage: string;
 
   @Column({

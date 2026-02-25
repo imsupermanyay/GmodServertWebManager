@@ -16,8 +16,8 @@ export class DockerService {
 
   async createContainer(name: string, imageName?: string, options?: any): Promise<string> {
     try {
-      // 使用传入的镜像名，默认为 lacledeslan/steamcmd
-      const image = imageName || 'lacledeslan/steamcmd';
+      // 使用传入的镜像名，默认为自定义 gmod 镜像
+      const image = imageName || 'gmod-custom';
       const normalizedImage = image.includes(':') ? image : `${image}:latest`;
 
       await this.ensureImageAvailable(normalizedImage);
