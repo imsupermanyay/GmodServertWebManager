@@ -75,6 +75,20 @@ export class InstancesGateway implements OnGatewayDisconnect {
         throw new Error('Instance has no attached container');
       }
 
+      // 如果已有 stream，检查容器是否还在运行，不在则销毁旧 stream 重建
+      const existingRecord = this.instanceStreams.get(instanceId);
+      if (existingRecord) {
+        try {
+          const status = await this.dockerService.getContainerStatus(instance.dockerId);
+          if (status !== 'running') {
+            this.logger.log(`Container for instance ${instanceId} is ${status}, rebuilding stream`);
+            this.stopStream(instanceId);
+          }
+        } catch {
+          this.stopStream(instanceId);
+        }
+      }
+
       await this.ensureStream(instance);
 
       client.join(this.roomName(instanceId));

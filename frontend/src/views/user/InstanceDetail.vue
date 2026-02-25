@@ -1241,28 +1241,8 @@ const connectLogsSocket = () => {
   logsSocket.on('logs:subscribed', async () => {
     socketConnected.value = true
     console.log('[WebSocket] 日志流已订阅，当前容器状态:', instanceData.value?.status)
-
-    // 只在容器运行时获取初始日志
-    if (instanceData.value?.status !== 'RUNNING') {
-      console.log('[WebSocket] 容器未运行，跳过日志获取')
-      return
-    }
-
-    try {
-      // 使用当前游标获取日志，如果没有游标则获取全部
-      const logParams = logCursor.value !== null ? { since: logCursor.value } : undefined
-      const response = await instancesAPI.getLogs(props.id, logParams)
-
-      
-      const shouldResetLogs = !logParams
-      applyLogsPayload(response.data, shouldResetLogs)
-      scrollConsoleToBottom()
-    } catch (error) {
-      notifications.error(
-        error.response?.data?.message || '加载初始日志失败',
-        { title: '日志流' }
-      )
-    }
+    // 后端 stream 已经带了 tail:200 的历史日志，不需要再通过 HTTP 拉取
+    // 之前这里会调 instancesAPI.getLogs() 导致和 stream 推送的日志重复
   })
 
   logsSocket.on('commandResult', (payload) => {
@@ -1465,8 +1445,18 @@ const startInstance = async () => {
   try {
     await instancesAPI.start(props.id)
     notifications.success('实例启动成功')
-    // loadDetail会自动检测状态变化并清空日志
+
+    // 清空旧日志
+    detailLogs.value = ''
+    logCursor.value = null
+
+    // 刷新实例信息
     await loadDetail(true)
+
+    // 如果 WebSocket 已连接，重新订阅让后端重建日志流
+    if (useRealtimeLogs.value && logsSocket && logsSocket.connected) {
+      subscribeLogs(true)
+    }
   } catch (error) {
     notifications.error(
       error.response?.data?.message || '启动失败',
@@ -1487,7 +1477,10 @@ const stopInstance = async () => {
     await instancesAPI.stop(props.id)
     notifications.success('实例已停止')
 
+    // 清空日志和游标
+    detailLogs.value = ''
     logCursor.value = null
+
     await loadDetail(true)
   } catch (error) {
     console.log(error.response)
@@ -1509,7 +1502,17 @@ const restartInstance = async () => {
   try {
     await instancesAPI.restart(props.id)
     notifications.success('实例重启成功')
+
+    // 清空旧日志，重新获取
+    detailLogs.value = ''
+    logCursor.value = null
+
     await loadDetail(true)
+
+    // 重新订阅日志流
+    if (useRealtimeLogs.value && logsSocket && logsSocket.connected) {
+      subscribeLogs(true)
+    }
   } catch (error) {
     notifications.error(
       error.response?.data?.message || '重启失败',
