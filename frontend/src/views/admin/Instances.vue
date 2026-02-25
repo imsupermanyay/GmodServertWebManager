@@ -133,9 +133,9 @@
               v-model="createForm.dockerImage"
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="gmod:local">gmod:local</option>
+              <option value="gmod-custom">gmod-custom</option>
             </select>
-            <p class="text-xs text-gray-500 mt-1">当前仅支持内置镜像 gmod:local</p>
+            <p class="text-xs text-gray-500 mt-1">当前仅支持内置镜像 gmod-custom</p>
           </div>
           <div class="flex justify-end space-x-3">
             <button
