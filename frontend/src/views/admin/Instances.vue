@@ -277,7 +277,7 @@ const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const createForm = ref({
   name: '',
-  dockerImage: 'gmod:local',
+  dockerImage: 'gmod-custom',
   hostDirectory: '',
   containerDirectory: '/opt/steam/garrysmod/addons'
 })
@@ -391,14 +391,16 @@ const createInstance = async () => {
     showCreateModal.value = false
     createForm.value = {
       name: '',
-      dockerImage: 'gmod:local',
+      dockerImage: 'gmod-custom',
       hostDirectory: '',
       containerDirectory: '/opt/steam/garrysmod/addons'
     }
     await loadInstances()
     notifications.success('实例创建成功')
   } catch (error) {
-    notifications.error(error.response?.data?.message || '创建失败', { title: '创建实例失败' })
+    const detail = error.response?.data?.message || error.message || '未知错误'
+    console.error('创建实例失败:', error.response?.data || error)
+    notifications.error(detail, { title: '创建实例失败' })
   }
 }
 

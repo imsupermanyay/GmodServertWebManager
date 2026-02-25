@@ -20,7 +20,9 @@ export class DockerService {
       const image = imageName || 'gmod-custom';
       const normalizedImage = image.includes(':') ? image : `${image}:latest`;
 
+      console.log('[Docker] 检查镜像是否可用:', normalizedImage);
       await this.ensureImageAvailable(normalizedImage);
+      console.log('[Docker] 镜像已就绪:', normalizedImage);
 
       // 基础配置
       const containerConfig: any = {
@@ -55,8 +57,11 @@ export class DockerService {
       Object.assign(containerConfig, otherOptions);
 
       const container = await this.docker.createContainer(containerConfig);
+      console.log('[Docker] 容器创建成功, ID:', container.id);
       return container.id;
     } catch (error) {
+      console.error('[Docker] 创建容器失败:', error.message);
+      console.error('[Docker] 完整错误:', error);
       throw new InternalServerErrorException(`创建容器失败: ${error.message}`);
     }
   }
@@ -341,8 +346,10 @@ export class DockerService {
   private async ensureImageAvailable(imageName: string): Promise<void> {
     try {
       await this.docker.getImage(imageName).inspect();
+      console.log('[Docker] 本地已有镜像:', imageName);
     } catch (error) {
       // 镜像不存在，尝试拉取
+      console.log('[Docker] 本地没有镜像，开始拉取:', imageName);
       await this.pullImage(imageName);
     }
   }

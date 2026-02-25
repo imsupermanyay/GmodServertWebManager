@@ -204,6 +204,8 @@ export class InstancesService {
   }
 
   async create(createInstanceDto: CreateInstanceDto): Promise<Instance> {
+    console.log('[创建实例] 开始，参数:', JSON.stringify(createInstanceDto));
+
     // 检查实例名称是否重复
     const existingInstance = await this.instancesRepository.findOne({
       where: { name: createInstanceDto.name },
@@ -215,11 +217,13 @@ export class InstancesService {
 
     // 如果指定了宿主机目录，先创建目录
     if (createInstanceDto.hostDirectory) {
+      console.log('[创建实例] 创建宿主机目录:', createInstanceDto.hostDirectory);
       await this.dockerService.createHostDirectory(createInstanceDto.hostDirectory);
     }
 
     // 创建数据目录 (每个实例都需要)
     const dataHostDir = path.join(this.dataRoot, `${createInstanceDto.name}_data`);
+    console.log('[创建实例] 创建数据目录:', dataHostDir);
     await this.dockerService.createHostDirectory(dataHostDir);
 
     // 准备 Docker 容器配置（简化版：只配置目录挂载和启动命令）
@@ -249,24 +253,40 @@ export class InstancesService {
 
     dockerOptions.Cmd = ['/bin/sh', '-c', defaultDockerCmd];
 
-    // 创建 Docker 容器（只创建，不启动）
-    const dockerId = await this.dockerService.createContainer(
-      createInstanceDto.name,
-      createInstanceDto.dockerImage, // 传递镜像名
-      dockerOptions,
-    );
+    const imageName = createInstanceDto.dockerImage || 'gmod-custom';
+    console.log('[创建实例] 使用镜像:', imageName);
+    console.log('[创建实例] Docker 配置:', JSON.stringify({ binds, Cmd: dockerOptions.Cmd }));
 
-    // 获取容器详细信息（包括分配的端口）
-    const containerInfo = await this.dockerService.getContainerInfo(dockerId);
+    try {
+      // 创建 Docker 容器（只创建，不启动）
+      console.log('[创建实例] 开始创建 Docker 容器...');
+      const dockerId = await this.dockerService.createContainer(
+        createInstanceDto.name,
+        createInstanceDto.dockerImage, // 传递镜像名
+        dockerOptions,
+      );
+      console.log('[创建实例] Docker 容器创建成功, ID:', dockerId);
 
-    const instance = this.instancesRepository.create({
-      ...createInstanceDto,
-      dockerId,
-      containerName: `gmod_${createInstanceDto.name}`,
-      status: InstanceStatus.STOPPED,
-    });
+      // 获取容器详细信息（包括分配的端口）
+      console.log('[创建实例] 获取容器详细信息...');
+      const containerInfo = await this.dockerService.getContainerInfo(dockerId);
+      console.log('[创建实例] 容器信息获取成功');
 
-    return this.instancesRepository.save(instance);
+      const instance = this.instancesRepository.create({
+        ...createInstanceDto,
+        dockerId,
+        containerName: `gmod_${createInstanceDto.name}`,
+        status: InstanceStatus.STOPPED,
+      });
+
+      const saved = await this.instancesRepository.save(instance);
+      console.log('[创建实例] 实例保存成功, ID:', saved.id);
+      return saved;
+    } catch (error) {
+      console.error('[创建实例] 失败:', error.message);
+      console.error('[创建实例] 完整错误:', error);
+      throw error;
+    }
   }
 
   async findAll(userId?: number, userRole?: UserRole): Promise<Instance[]> {
