@@ -482,16 +482,15 @@ export class InstancesService implements OnModuleInit {
       throw new ConflictException('实例没有关联到启动项！');
     }
 
-    // 注入端口参数，确保 Steam Master Server 能正确发现服务器
-    if (instance.port) {
-      startupArgs = startupArgs
-        .replace(/-port\s+\d+/gi, '')
-        .replace(/\+clientport\s+\d+/gi, '')
-        .replace(/\+hostport\s+\d+/gi, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-      startupArgs = `-port 27015 +clientport 27005 +hostport ${instance.port} ${startupArgs}`;
-    }
+    // 强制容器内 srcds 监听固定端口 27015/27005，Docker 端口映射负责转发到宿主机端口
+    // 移除用户启动参数中可能存在的端口配置，避免 srcds 监听非预期端口
+    startupArgs = startupArgs
+      .replace(/-port\s+\d+/gi, '')
+      .replace(/\+clientport\s+\d+/gi, '')
+      .replace(/\+hostport\s+\d+/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    startupArgs = `-port 27015 +clientport 27005 ${startupArgs}`;
 
     await this.dockerService.writeFileToContainer(
       instance.dockerId,
@@ -596,10 +595,8 @@ export class InstancesService implements OnModuleInit {
       // 忽略错误，继续执行
     }
 
-    // 动态注入端口参数，确保 srcds 向 Steam Master Server 上报正确的端口
-    // 容器内部始终监听 27015/27005，但需要通过 -port/+clientport/+hostport 告知 srcds
-    // 宿主机实际暴露的端口，这样 Steam 服务器列表才能正确找到
-    // 先移除用户启动参数中可能已有的端口配置，避免冲突
+    // 强制容器内 srcds 监听固定端口 27015/27005，Docker 端口映射负责转发到宿主机端口
+    // 移除用户启动参数中可能存在的端口配置，避免 srcds 监听非预期端口
     let finalArgs = startupArgs
       .replace(/-port\s+\d+/gi, '')
       .replace(/\+clientport\s+\d+/gi, '')
@@ -607,12 +604,7 @@ export class InstancesService implements OnModuleInit {
       .replace(/\s+/g, ' ')
       .trim();
 
-    if (instance.port) {
-      // -port: srcds 监听的游戏端口（容器内固定 27015）
-      // +clientport: 客户端通信端口（容器内固定 27005）
-      // +hostport: 告知 Steam Master Server 实际对外暴露的端口
-      finalArgs = `-port 27015 +clientport 27005 +hostport ${instance.port} ${finalArgs}`;
-    }
+    finalArgs = `-port 27015 +clientport 27005 ${finalArgs}`;
 
     // 使用 screen 会话以 gmod 用户运行服务器，并将输出重定向到容器主进程的 stdout
     // runuser 用于切换到 gmod 用户，避免 ROOT 警告
