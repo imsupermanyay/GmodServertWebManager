@@ -7,7 +7,24 @@ STEAM_USER="${STEAM_USER:-steam}"
 ensure_permissions() {
   if [[ "$(id -u)" -eq 0 ]]; then
     mkdir -p "${STEAMAPP_DIR}"
-    chown -R "${STEAM_USER}:${STEAM_USER}" "${STEAMAPP_DIR}"
+
+    # 找出所有挂载点，chown 时跳过它们
+    # 避免修改共享挂载目录的文件属性，防止触发其他容器的 Gmod 热重载
+    local exclude_args=()
+    while IFS= read -r mnt; do
+      [[ -z "$mnt" ]] && continue
+      # 只排除 STEAMAPP_DIR 下的挂载点
+      if [[ "$mnt" == "${STEAMAPP_DIR}"/* ]]; then
+        exclude_args+=(-path "$mnt" -prune -o)
+      fi
+    done < <(findmnt -rn -o TARGET | grep "^${STEAMAPP_DIR}/")
+
+    if [[ ${#exclude_args[@]} -gt 0 ]]; then
+      # 用 find 遍历目录，跳过挂载点，对其余文件执行 chown
+      find "${STEAMAPP_DIR}" "${exclude_args[@]}" -print0 | xargs -0 chown "${STEAM_USER}:${STEAM_USER}"
+    else
+      chown -R "${STEAM_USER}:${STEAM_USER}" "${STEAMAPP_DIR}"
+    fi
   fi
 }
 
@@ -29,24 +46,20 @@ if [[ -n "${START_VALUE}" ]]; then
 
   printf '[start-server] 检测到 StartValue，准备启动服务器\n'
 
-  # 使用 screen 在后台运行服务器
   SESSION_NAME="gmod-server"
 
-  # 清理死掉的 screen 会话
   if [[ "$(id -u)" -eq 0 ]]; then
     gosu "${STEAM_USER}" screen -wipe 2>/dev/null || true
   else
     screen -wipe 2>/dev/null || true
   fi
 
-  # 如果同名会话已存在，先终止它
   if [[ "$(id -u)" -eq 0 ]]; then
     gosu "${STEAM_USER}" screen -S ${SESSION_NAME} -X quit 2>/dev/null || true
   else
     screen -S ${SESSION_NAME} -X quit 2>/dev/null || true
   fi
 
-  # 启动服务器在 screen 会话中
   if [[ "$(id -u)" -eq 0 ]]; then
     gosu "${STEAM_USER}" bash -lc "cd \"${STEAMAPP_DIR}\" && screen -dmS ${SESSION_NAME} ./srcds_run ${START_VALUE}"
   else
@@ -55,10 +68,8 @@ if [[ -n "${START_VALUE}" ]]; then
 
   printf '[start-server] 服务器已在 screen 会话中启动: %s\n' "${SESSION_NAME}"
 
-  # 设置 screen 的日志文件
   LOG_FILE="${STEAMAPP_DIR}/screen.log"
 
-  # 启用 screen 的日志记录
   if [[ "$(id -u)" -eq 0 ]]; then
     gosu "${STEAM_USER}" screen -S ${SESSION_NAME} -X logfile "${LOG_FILE}"
     gosu "${STEAM_USER}" screen -S ${SESSION_NAME} -X log on
@@ -67,7 +78,6 @@ if [[ -n "${START_VALUE}" ]]; then
     screen -S ${SESSION_NAME} -X log on
   fi
 
-  # 持续输出日志文件内容
   touch "${LOG_FILE}"
   exec tail -f "${LOG_FILE}"
 fi
