@@ -25,9 +25,10 @@ export class DockerService {
       console.log('[Docker] 镜像已就绪:', normalizedImage);
 
       // 端口配置：如果传入了 port 则使用固定端口，否则自动分配
-      // 游戏端口 = port, 客户端端口 = port + 1
+      // 游戏端口 = port (TCP+UDP), 客户端通信端口 = port - 10 (UDP)
+      // Source 引擎默认: 游戏端口 27015, 客户端端口 27005 (差值固定为 10)
       const hostPort = options?.port ? String(options.port) : '0';
-      const clientPort = options?.port ? String(options.port + 1) : '0';
+      const clientPort = options?.port ? String(options.port - 10) : '0';
 
       console.log('[Docker] 端口配置 - options.port:', options?.port);
       console.log('[Docker] 端口配置 - hostPort:', hostPort, ', clientPort:', clientPort);
