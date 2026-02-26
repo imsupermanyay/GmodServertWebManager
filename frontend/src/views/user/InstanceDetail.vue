@@ -170,8 +170,18 @@
             <label class="inline-flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
+                v-model="logsEnabled"
+                class="rounded border-slate-600 bg-slate-800 text-emerald-400 focus:ring-emerald-500"
+              />
+              <span :class="logsEnabled ? 'text-emerald-300' : 'text-slate-500'">
+                {{ logsEnabled ? '输出已开启' : '输出已关闭' }}
+              </span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
                 v-model="autoRefresh"
-                :disabled="useRealtimeLogs"
+                :disabled="useRealtimeLogs || !logsEnabled"
                 class="rounded border-slate-600 bg-slate-800 text-blue-400 focus:ring-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"
               />
               自动刷新（5 秒）
@@ -1060,6 +1070,7 @@ const serverActionLoading = ref(false)
 const showScreenOverlay = ref(false)
 const screenOverlayMessage = ref('')
 const useRealtimeLogs = ref(hasRealtimeToken)
+const logsEnabled = ref(true) // 控制台输出开关
 const socketConnected = ref(false)
 const showSyncLogsDialog = ref(false)
 const syncLogs = ref([])
@@ -1264,12 +1275,20 @@ const connectLogsSocket = () => {
 const appendLogs = (text) => {
   if (!text) return
 
+  const MAX_LOG_LENGTH = 200000 // ~200KB max log buffer
+
   const needsSeparator =
     detailLogs.value &&
     !detailLogs.value.endsWith('\n') &&
     !text.startsWith('\n')
 
   detailLogs.value += needsSeparator ? `\n${text}` : text
+
+  // Trim old logs if buffer exceeds limit
+  if (detailLogs.value.length > MAX_LOG_LENGTH) {
+    const cutIndex = detailLogs.value.indexOf('\n', detailLogs.value.length - MAX_LOG_LENGTH)
+    detailLogs.value = cutIndex > 0 ? detailLogs.value.slice(cutIndex + 1) : detailLogs.value.slice(-MAX_LOG_LENGTH)
+  }
 }
 
 const applyLogsPayload = (payload, reset = false) => {
@@ -1311,7 +1330,7 @@ const loadDetail = async (reset = false) => {
     instanceData.value = newInstanceData
 
     // 只在容器运行时获取日志
-    const shouldFetchLogs = isRunning && (!useRealtimeLogs.value || !socketConnected.value)
+    const shouldFetchLogs = logsEnabled.value && isRunning && (!useRealtimeLogs.value || !socketConnected.value)
 
     if (shouldFetchLogs) {
       const useCursor = !reset && logCursor.value !== null
@@ -1415,13 +1434,30 @@ watch(numericInstanceId, (newId, oldId) => {
 })
 
 watch(useRealtimeLogs, (value) => {
-  if (value) {
+  if (value && logsEnabled.value) {
     autoRefresh.value = false
     stopAutoRefresh()
     connectLogsSocket()
   } else {
     disconnectLogsSocket()
-    autoRefresh.value = true
+    if (logsEnabled.value) {
+      autoRefresh.value = true
+    }
+  }
+})
+
+watch(logsEnabled, (enabled) => {
+  if (enabled) {
+    if (useRealtimeLogs.value) {
+      connectLogsSocket()
+    } else {
+      autoRefresh.value = true
+      startAutoRefresh()
+    }
+  } else {
+    disconnectLogsSocket()
+    stopAutoRefresh()
+    autoRefresh.value = false
   }
 })
 
@@ -2515,11 +2551,11 @@ const formatSyncDate = (dateString) => {
 }
 
 onMounted(() => {
-  if (useRealtimeLogs.value) {
+  if (logsEnabled.value && useRealtimeLogs.value) {
     connectLogsSocket()
   }
   loadDetail()
-  if (!useRealtimeLogs.value && autoRefresh.value) {
+  if (logsEnabled.value && !useRealtimeLogs.value && autoRefresh.value) {
     startAutoRefresh()
   }
 })

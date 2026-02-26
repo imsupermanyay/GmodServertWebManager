@@ -184,21 +184,47 @@ export class InstancesGateway implements OnGatewayDisconnect {
       const record: InstanceStreamRecord = { stream, clients };
       this.instanceStreams.set(instance.id, record);
 
+      // Throttle: buffer log chunks and flush at most every 200ms
+      let logBuffer = '';
+      let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+      const flushLogs = () => {
+        flushTimer = null;
+        if (!logBuffer) return;
+        const text = logBuffer;
+        logBuffer = '';
+        this.server
+          .to(this.roomName(instance.id))
+          .emit('logs', { instanceId: instance.id, logs: text });
+      };
+
       stream.on('data', (chunk: Buffer) => {
         const text = this.dockerService.decodeLogChunk(chunk);
         if (!text) return;
 
-        this.server
-          .to(this.roomName(instance.id))
-          .emit('logs', { instanceId: instance.id, logs: text });
+        logBuffer += text;
+
+        // Flush immediately if buffer is large, otherwise debounce
+        if (logBuffer.length > 8192) {
+          if (flushTimer) {
+            clearTimeout(flushTimer);
+          }
+          flushLogs();
+        } else if (!flushTimer) {
+          flushTimer = setTimeout(flushLogs, 200);
+        }
       });
 
       stream.on('error', (err) => {
+        if (flushTimer) clearTimeout(flushTimer);
+        flushLogs();
         this.logger.error(`Log stream error (instance=${instance.id}): ${err.message}`);
         this.handleStreamDisconnect(instance.id, `日志流错误: ${err.message}`);
       });
 
       stream.on('end', () => {
+        if (flushTimer) clearTimeout(flushTimer);
+        flushLogs();
         this.logger.warn(`Log stream ended (instance=${instance.id})`);
         this.handleStreamDisconnect(instance.id, '日志流已断开');
       });
@@ -214,10 +240,9 @@ export class InstancesGateway implements OnGatewayDisconnect {
     // 清理旧流
     this.stopStream(instanceId);
 
-    // 检查是否还有客户端订阅
-    const hasSubscribers = Array.from(this.clientSubscriptions.values()).some(
-      (subs) => subs.has(instanceId)
-    );
+    // 检查是否还有客户端在对应的 room 中
+    const room = this.server?.adapter?.rooms?.get(this.roomName(instanceId));
+    const hasSubscribers = room && room.size > 0;
 
     if (!hasSubscribers) {
       this.logger.log(`No subscribers for instance ${instanceId}, not reconnecting`);
@@ -229,8 +254,15 @@ export class InstancesGateway implements OnGatewayDisconnect {
       .to(this.roomName(instanceId))
       .emit('logs:disconnected', { instanceId, reason });
 
-    // 3秒后尝试重新连接
+    // 5秒后尝试重新连接（仅一次）
     setTimeout(async () => {
+      // 再次检查是否还有订阅者
+      const roomAfterDelay = this.server?.adapter?.rooms?.get(this.roomName(instanceId));
+      if (!roomAfterDelay || roomAfterDelay.size === 0) {
+        this.logger.log(`No subscribers for instance ${instanceId} after delay, skipping reconnect`);
+        return;
+      }
+
       try {
         const instance = await this.instancesService.findOne(instanceId);
         if (!instance?.dockerId) {
@@ -259,7 +291,7 @@ export class InstancesGateway implements OnGatewayDisconnect {
           .to(this.roomName(instanceId))
           .emit('logs:error', `重连失败: ${error.message}`);
       }
-    }, 3000);
+    }, 5000);
   }
 
   private removeClientSubscription(client: Socket, instanceId: number): void {
