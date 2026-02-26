@@ -788,8 +788,13 @@ export class InstancesService implements OnModuleInit {
   }
 
   private async allocatePort(): Promise<number> {
+    // Source 引擎: 游戏端口 = port, 客户端端口 = port - 10
+    // 每个实例占用 [port-10, port] 范围，步长 100 确保永不冲突
+    // 实例1: 27015 (客户端 27005)
+    // 实例2: 27115 (客户端 27105)
+    // 实例3: 27215 (客户端 27205) ...
     const BASE_PORT = 27015;
-    const PORT_STEP = 2; // 每个实例占 2 个端口（游戏端口 + 客户端端口）
+    const PORT_STEP = 100;
 
     const instances = await this.instancesRepository.find({
       select: ['port'],
@@ -805,7 +810,7 @@ export class InstancesService implements OnModuleInit {
     }
 
     console.log('[端口分配] 已占用端口:', Array.from(usedPorts).sort());
-    console.log('[端口分配] 分配端口:', port);
+    console.log('[端口分配] 分配端口:', port, ', 客户端端口:', port - 10);
     return port;
   }
 
