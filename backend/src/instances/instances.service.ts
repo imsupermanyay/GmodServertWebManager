@@ -273,6 +273,8 @@ export class InstancesService implements OnModuleInit {
     if (createInstanceDto.port) {
       dockerOptions.port = createInstanceDto.port;
     }
+    console.log('[创建实例] port 参数:', createInstanceDto.port);
+    console.log('[创建实例] dockerOptions:', JSON.stringify(dockerOptions));
 
     // 设置 Docker 启动命令（默认下载 GMOD 4020）
     // 这个命令会在容器启动时执行，用于初始化环境

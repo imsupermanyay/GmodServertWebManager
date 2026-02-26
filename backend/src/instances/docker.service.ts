@@ -29,6 +29,10 @@ export class DockerService {
       const hostPort = options?.port ? String(options.port) : '0';
       const clientPort = options?.port ? String(options.port + 1) : '0';
 
+      console.log('[Docker] 端口配置 - options.port:', options?.port);
+      console.log('[Docker] 端口配置 - hostPort:', hostPort, ', clientPort:', clientPort);
+      console.log('[Docker] 完整 options:', JSON.stringify(options));
+
       // 基础配置
       const containerConfig: any = {
         name: `gmod_${name}`,
