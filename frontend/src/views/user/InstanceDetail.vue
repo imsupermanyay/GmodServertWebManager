@@ -1105,15 +1105,15 @@ const formattedPorts = computed(() => {
     return '未设置'
   }
 
-  // 找到 27015 端口的映射
-  const port27015 = portMappings.value.find(p => p.containerPort && p.containerPort.includes('27015'))
+  // 找到游戏端口的映射（TCP 端口，排除纯 UDP 的客户端端口）
+  const gamePort = portMappings.value.find(p => p.containerPort && p.containerPort.includes('/tcp'))
 
-  if (port27015 && port27015.hostPort) {
-    return `${port27015.hostPort} → ${port27015.containerPort}`
+  if (gamePort && gamePort.hostPort) {
+    return `${gamePort.hostPort} → ${gamePort.containerPort}`
   }
 
-  // 如果没找到，显示第一个端口
-  const firstPort = portMappings.value[0]
+  // 如果没找到 TCP 端口，显示第一个有映射的端口
+  const firstPort = portMappings.value.find(p => p.hostPort)
   if (firstPort && firstPort.hostPort) {
     return `${firstPort.hostPort} → ${firstPort.containerPort}`
   }

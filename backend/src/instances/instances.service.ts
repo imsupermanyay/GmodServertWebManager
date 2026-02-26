@@ -255,7 +255,9 @@ export class InstancesService implements OnModuleInit {
     ];
 
     if (createInstanceDto.hostDirectory && createInstanceDto.containerDirectory) {
-      binds.push(`${createInstanceDto.hostDirectory}:${createInstanceDto.containerDirectory}`);
+      // 以只读方式挂载共享的 addons/gamemode 目录
+      // 防止多个容器共享同一目录时，一个容器的写入触发其他容器的 Gmod 热重载
+      binds.push(`${createInstanceDto.hostDirectory}:${createInstanceDto.containerDirectory}:ro`);
     }
 
     // 挂载 bin 目录 (mysqloo 等二进制模块)
