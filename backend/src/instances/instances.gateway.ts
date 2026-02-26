@@ -241,8 +241,15 @@ export class InstancesGateway implements OnGatewayDisconnect {
     this.stopStream(instanceId);
 
     // 检查是否还有客户端在对应的 room 中
-    const room = this.server?.adapter?.rooms?.get(this.roomName(instanceId));
-    const hasSubscribers = room && room.size > 0;
+    const roomName = this.roomName(instanceId);
+    const room = this.server?.in(roomName);
+    let hasSubscribers = false;
+    try {
+      const sockets = await room.fetchSockets();
+      hasSubscribers = sockets.length > 0;
+    } catch {
+      hasSubscribers = false;
+    }
 
     if (!hasSubscribers) {
       this.logger.log(`No subscribers for instance ${instanceId}, not reconnecting`);
@@ -257,8 +264,14 @@ export class InstancesGateway implements OnGatewayDisconnect {
     // 5秒后尝试重新连接（仅一次）
     setTimeout(async () => {
       // 再次检查是否还有订阅者
-      const roomAfterDelay = this.server?.adapter?.rooms?.get(this.roomName(instanceId));
-      if (!roomAfterDelay || roomAfterDelay.size === 0) {
+      let stillHasSubscribers = false;
+      try {
+        const sockets = await this.server?.in(this.roomName(instanceId)).fetchSockets();
+        stillHasSubscribers = sockets && sockets.length > 0;
+      } catch {
+        stillHasSubscribers = false;
+      }
+      if (!stillHasSubscribers) {
         this.logger.log(`No subscribers for instance ${instanceId} after delay, skipping reconnect`);
         return;
       }
