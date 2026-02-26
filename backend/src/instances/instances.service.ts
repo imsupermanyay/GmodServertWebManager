@@ -482,15 +482,19 @@ export class InstancesService implements OnModuleInit {
       throw new ConflictException('实例没有关联到启动项！');
     }
 
-    // 强制容器内 srcds 监听固定端口 27015/27005，Docker 端口映射负责转发到宿主机端口
-    // 移除用户启动参数中可能存在的端口配置，避免 srcds 监听非预期端口
+    // 强制 srcds 监听实例分配的端口，容器内外端口一致
+    // 这样 srcds 向 Steam Master Server 上报的端口与宿主机暴露的端口相同
     startupArgs = startupArgs
       .replace(/-port\s+\d+/gi, '')
       .replace(/\+clientport\s+\d+/gi, '')
       .replace(/\+hostport\s+\d+/gi, '')
       .replace(/\s+/g, ' ')
       .trim();
-    startupArgs = `-port 27015 +clientport 27005 ${startupArgs}`;
+    if (instance.port) {
+      startupArgs = `-port ${instance.port} +clientport ${instance.port - 10} ${startupArgs}`;
+    } else {
+      startupArgs = `-port 27015 +clientport 27005 ${startupArgs}`;
+    }
 
     await this.dockerService.writeFileToContainer(
       instance.dockerId,
@@ -595,8 +599,8 @@ export class InstancesService implements OnModuleInit {
       // 忽略错误，继续执行
     }
 
-    // 强制容器内 srcds 监听固定端口 27015/27005，Docker 端口映射负责转发到宿主机端口
-    // 移除用户启动参数中可能存在的端口配置，避免 srcds 监听非预期端口
+    // 强制 srcds 监听实例分配的端口，容器内外端口一致
+    // 这样 srcds 向 Steam Master Server 上报的端口与宿主机暴露的端口相同
     let finalArgs = startupArgs
       .replace(/-port\s+\d+/gi, '')
       .replace(/\+clientport\s+\d+/gi, '')
@@ -604,7 +608,11 @@ export class InstancesService implements OnModuleInit {
       .replace(/\s+/g, ' ')
       .trim();
 
-    finalArgs = `-port 27015 +clientport 27005 ${finalArgs}`;
+    if (instance.port) {
+      finalArgs = `-port ${instance.port} +clientport ${instance.port - 10} ${finalArgs}`;
+    } else {
+      finalArgs = `-port 27015 +clientport 27005 ${finalArgs}`;
+    }
 
     // 使用 screen 会话以 gmod 用户运行服务器，并将输出重定向到容器主进程的 stdout
     // runuser 用于切换到 gmod 用户，避免 ROOT 警告

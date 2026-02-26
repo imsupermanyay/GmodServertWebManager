@@ -24,17 +24,18 @@ export class DockerService {
       await this.ensureImageAvailable(normalizedImage);
       console.log('[Docker] 镜像已就绪:', normalizedImage);
 
-      // 端口配置：如果传入了 port 则使用固定端口，否则自动分配
+      // 端口配置：每个实例使用独立端口，容器内外端口一致
+      // 这样 srcds 向 Steam Master Server 上报的端口就是宿主机实际暴露的端口
+      // 避免 Docker NAT 源端口随机化导致 Steam 服务器列表找不到服务器
       // 游戏端口 = port (TCP+UDP), 客户端通信端口 = port - 10 (UDP)
-      // Source 引擎默认: 游戏端口 27015, 客户端端口 27005 (差值固定为 10)
-      const hostPort = options?.port ? String(options.port) : '0';
+      const gamePort = options?.port ? String(options.port) : '0';
       const clientPort = options?.port ? String(options.port - 10) : '0';
 
       console.log('[Docker] 端口配置 - options.port:', options?.port);
-      console.log('[Docker] 端口配置 - hostPort:', hostPort, ', clientPort:', clientPort);
+      console.log('[Docker] 端口配置 - gamePort:', gamePort, ', clientPort:', clientPort);
       console.log('[Docker] 完整 options:', JSON.stringify(options));
 
-      // 基础配置
+      // 基础配置：容器内外使用相同端口，避免 NAT 转换问题
       const containerConfig: any = {
         name: `gmod_${name}`,
         Image: normalizedImage,
@@ -42,15 +43,15 @@ export class DockerService {
         OpenStdin: true,
         User: 'root', // 以 root 身份启动，以便安装依赖
         ExposedPorts: {
-          '27015/udp': {},
-          '27015/tcp': {},
-          '27005/udp': {},
+          [`${gamePort}/udp`]: {},
+          [`${gamePort}/tcp`]: {},
+          [`${clientPort}/udp`]: {},
         },
         HostConfig: {
           PortBindings: {
-            '27015/udp': [{ HostPort: hostPort }],
-            '27015/tcp': [{ HostPort: hostPort }],
-            '27005/udp': [{ HostPort: clientPort }],
+            [`${gamePort}/udp`]: [{ HostPort: gamePort }],
+            [`${gamePort}/tcp`]: [{ HostPort: gamePort }],
+            [`${clientPort}/udp`]: [{ HostPort: clientPort }],
           },
           RestartPolicy: {
             Name: 'unless-stopped',
