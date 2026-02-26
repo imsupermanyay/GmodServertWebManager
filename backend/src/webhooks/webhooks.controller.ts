@@ -213,13 +213,13 @@ export class WebhooksController {
       // Sync build first, then overlay core so core wins conflicts
       console.log(`[Webhook][${repositoryName}] Syncing build directory into dev root...`);
       await this.runGitCommand(
-        `rsync -av --delete --exclude '.git/' --exclude '.git' "${buildDir}/" "${devDir}/"`,
+        `rsync -a --delete --exclude '.git/' --exclude '.git' "${buildDir}/" "${devDir}/"`,
         repositoryName,
       );
 
       console.log(`[Webhook][${repositoryName}] Overlaying core directory into dev root...`);
       await this.runGitCommand(
-        `rsync -av --exclude '.git/' --exclude '.git' "${coreDir}/" "${devDir}/"`,
+        `rsync -a --exclude '.git/' --exclude '.git' "${coreDir}/" "${devDir}/"`,
         repositoryName,
       );
 
@@ -275,13 +275,12 @@ export class WebhooksController {
   }
 
   private async runGitCommand(command: string, repositoryName: string) {
-    console.log(`[Webhook][${repositoryName}] Executing command: ${command}`);
-    const { stdout, stderr } = await execAsync(command, EXEC_OPTIONS);
-    if (stdout) {
-      console.log(`[Webhook][${repositoryName}] git stdout:\n${stdout}`);
-    }
-    if (stderr) {
-      console.warn(`[Webhook][${repositoryName}] git stderr:\n${stderr}`);
+    console.log(`[Webhook][${repositoryName}] Executing: ${command}`);
+    try {
+      await execAsync(command, { maxBuffer: 50 * 1024 * 1024 });
+    } catch (error) {
+      console.error(`[Webhook][${repositoryName}] Command failed: ${error.message}`);
+      throw error;
     }
   }
 
