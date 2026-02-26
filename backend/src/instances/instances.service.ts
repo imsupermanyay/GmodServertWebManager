@@ -477,9 +477,20 @@ export class InstancesService implements OnModuleInit {
       throw new ConflictException('实例没有关联的 Docker 容器');
     }
 
-    const startupArgs = await this.getStartupArgs(instance);
+    let startupArgs = await this.getStartupArgs(instance);
     if (!startupArgs) {
       throw new ConflictException('实例没有关联到启动项！');
+    }
+
+    // 注入端口参数，确保 Steam Master Server 能正确发现服务器
+    if (instance.port) {
+      startupArgs = startupArgs
+        .replace(/-port\s+\d+/gi, '')
+        .replace(/\+clientport\s+\d+/gi, '')
+        .replace(/\+hostport\s+\d+/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      startupArgs = `-port 27015 +clientport 27005 +hostport ${instance.port} ${startupArgs}`;
     }
 
     await this.dockerService.writeFileToContainer(
@@ -585,11 +596,29 @@ export class InstancesService implements OnModuleInit {
       // 忽略错误，继续执行
     }
 
+    // 动态注入端口参数，确保 srcds 向 Steam Master Server 上报正确的端口
+    // 容器内部始终监听 27015/27005，但需要通过 -port/+clientport/+hostport 告知 srcds
+    // 宿主机实际暴露的端口，这样 Steam 服务器列表才能正确找到
+    // 先移除用户启动参数中可能已有的端口配置，避免冲突
+    let finalArgs = startupArgs
+      .replace(/-port\s+\d+/gi, '')
+      .replace(/\+clientport\s+\d+/gi, '')
+      .replace(/\+hostport\s+\d+/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (instance.port) {
+      // -port: srcds 监听的游戏端口（容器内固定 27015）
+      // +clientport: 客户端通信端口（容器内固定 27005）
+      // +hostport: 告知 Steam Master Server 实际对外暴露的端口
+      finalArgs = `-port 27015 +clientport 27005 +hostport ${instance.port} ${finalArgs}`;
+    }
+
     // 使用 screen 会话以 gmod 用户运行服务器，并将输出重定向到容器主进程的 stdout
     // runuser 用于切换到 gmod 用户，避免 ROOT 警告
     // stdbuf -o0 禁用输出缓冲，确保实时显示所有控制台消息
     // /proc/1/fd/1 是容器主进程的标准输出
-    const command = `runuser -u gmod -- bash -c 'cd /opt/steam && screen -dmS gmod bash -c "stdbuf -o0 ./srcds_run ${startupArgs} 2>&1 | stdbuf -o0 tee /proc/1/fd/1"'`;
+    const command = `runuser -u gmod -- bash -c 'cd /opt/steam && screen -dmS gmod bash -c "stdbuf -o0 ./srcds_run ${finalArgs} 2>&1 | stdbuf -o0 tee /proc/1/fd/1"'`;
 
     await this.dockerService.execCommand(instance.dockerId, command, {
       cwd: '/opt/steam/',
