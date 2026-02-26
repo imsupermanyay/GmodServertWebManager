@@ -97,6 +97,7 @@ export const instancesAPI = {
   getModeLinkGamemodes: () => api.get('/instances/links/gamemodes'),
   bindModeLink: (data) => api.post('/instances/links/bind', data),
   unbindModeLink: (data) => api.post('/instances/links/unbind', data),
+  getBinDirectories: () => api.get('/instances/bin-directories'),
   // 文件管理
   listFiles: (id, path) => api.get(`/instances/${id}/files`, { params: { path } }),
   uploadFile: (id, path, file) => {

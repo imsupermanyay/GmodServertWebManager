@@ -33,6 +33,9 @@ export class Instance {
   containerDirectory: string;
 
   @Column({ nullable: true })
+  binHostDirectory: string;
+
+  @Column({ nullable: true })
   cfgTemplateId: number;
 
   @Column({ nullable: true })

@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, ConflictException, ForbiddenException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Instance } from './entities/instance.entity';
@@ -15,7 +15,7 @@ import { Gamemode } from '../gamemodes/entities/gamemode.entity';
 import archiver from 'archiver';
 
 @Injectable()
-export class InstancesService {
+export class InstancesService implements OnModuleInit {
   constructor(
     @InjectRepository(Instance)
     private instancesRepository: Repository<Instance>,
@@ -31,6 +31,23 @@ export class InstancesService {
   private readonly hostInstancesRoot = process.env.GMOD_INSTANCE_ROOT || '/opt/gmodserver';
   private readonly gamemodeRoot = process.env.GMOD_GAMEMODE_ROOT || '/opt/allgamemodes';
   private readonly dataRoot = process.env.GMOD_DATA_ROOT || '/opt/allserverdata';
+  private readonly binRoot = process.env.GMOD_BIN_ROOT || '/opt/gmodbin';
+
+  async onModuleInit(): Promise<void> {
+    try {
+      await fs.mkdir(this.binRoot, { recursive: true });
+      console.log(`[初始化] Bin 目录已就绪: ${this.binRoot}`);
+    } catch (error) {
+      console.error(`[初始化] 创建 Bin 目录失败: ${(error as Error).message}`);
+    }
+  }
+
+  async listBinDirectories(): Promise<string[]> {
+    const entries = await this.safeReaddir(this.binRoot);
+    return entries
+      .filter(e => e.isDirectory())
+      .map(e => e.name);
+  }
 
   private sanitizeIdentifier(value: string | undefined, label: string): string {
     const trimmed = (value ?? '').trim();
@@ -239,6 +256,13 @@ export class InstancesService {
 
     if (createInstanceDto.hostDirectory && createInstanceDto.containerDirectory) {
       binds.push(`${createInstanceDto.hostDirectory}:${createInstanceDto.containerDirectory}`);
+    }
+
+    // 挂载 bin 目录 (mysqloo 等二进制模块)
+    if (createInstanceDto.binHostDirectory) {
+      const binFullPath = path.join(this.binRoot, createInstanceDto.binHostDirectory);
+      await this.dockerService.createHostDirectory(binFullPath);
+      binds.push(`${binFullPath}:/opt/steam/garrysmod/lua/bin`);
     }
 
     dockerOptions.HostConfig = {

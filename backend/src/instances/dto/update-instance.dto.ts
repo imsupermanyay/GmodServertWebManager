@@ -13,6 +13,10 @@ export class UpdateInstanceDto {
   @IsOptional()
   containerDirectory?: string;
 
+  @IsString()
+  @IsOptional()
+  binHostDirectory?: string;
+
   @IsNumber()
   @IsOptional()
   adminId?: number;

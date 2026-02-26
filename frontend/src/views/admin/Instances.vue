@@ -137,6 +137,19 @@
             </select>
             <p class="text-xs text-gray-500 mt-1">当前仅支持内置镜像 gmod-custom</p>
           </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Bin 目录（可选）</label>
+            <select
+              v-model="createForm.binHostDirectory"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">不挂载</option>
+              <option v-for="dir in binDirectories" :key="dir" :value="dir">
+                {{ dir }}
+              </option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">挂载 /opt/gmodbin/{目录} 到容器 lua/bin/（用于 mysqloo 等二进制模块）</p>
+          </div>
           <div class="flex justify-end space-x-3">
             <button
               type="button"
@@ -191,6 +204,19 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p class="text-xs text-gray-500 mt-1">宿主机目录不可修改</p>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Bin 目录（可选）</label>
+            <select
+              v-model="editForm.binHostDirectory"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">不挂载</option>
+              <option v-for="dir in binDirectories" :key="dir" :value="dir">
+                {{ dir }}
+              </option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">挂载到容器 lua/bin/（修改后需重建容器才能生效）</p>
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">分配管理员</label>
@@ -273,19 +299,22 @@ const adminUsers = ref([])
 const cfgTemplates = ref([])
 const startupOptions = ref([])
 const gamemodes = ref([])
+const binDirectories = ref([])
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const createForm = ref({
   name: '',
   dockerImage: 'gmod-custom',
   hostDirectory: '',
-  containerDirectory: '/opt/steam/garrysmod/addons'
+  containerDirectory: '/opt/steam/garrysmod/addons',
+  binHostDirectory: ''
 })
 const editForm = ref({
   id: null,
   name: '',
   hostDirectory: '',
   containerDirectory: '',
+  binHostDirectory: '',
   adminId: null,
   cfgTemplateId: null,
   startupOptionId: null,
@@ -393,7 +422,8 @@ const createInstance = async () => {
       name: '',
       dockerImage: 'gmod-custom',
       hostDirectory: '',
-      containerDirectory: '/opt/steam/garrysmod/addons'
+      containerDirectory: '/opt/steam/garrysmod/addons',
+      binHostDirectory: ''
     }
     await loadInstances()
     notifications.success('实例创建成功')
@@ -410,6 +440,7 @@ const editInstance = (instance) => {
     name: instance.name,
     hostDirectory: instance.hostDirectory || '',
     containerDirectory: instance.containerDirectory || '',
+    binHostDirectory: instance.binHostDirectory || '',
     adminId: instance.adminId || null,
     cfgTemplateId: instance.cfgTemplateId || null,
     startupOptionId: instance.startupOptionId || null,
@@ -442,11 +473,21 @@ const deleteInstance = async (id) => {
   }
 }
 
+const loadBinDirectories = async () => {
+  try {
+    const response = await instancesAPI.getBinDirectories()
+    binDirectories.value = response.data
+  } catch (error) {
+    console.error('加载 Bin 目录列表失败')
+  }
+}
+
 onMounted(() => {
   loadInstances()
   loadAdminUsers()
   loadCfgTemplates()
   loadStartupOptions()
   loadGamemodes()
+  loadBinDirectories()
 })
 </script>

@@ -49,6 +49,12 @@ export class InstancesController {
     return this.instancesService.unbindInstanceLink(body.instanceName);
   }
 
+  @Get('bin-directories')
+  @Roles(UserRole.SUPER_ADMIN)
+  listBinDirectories() {
+    return this.instancesService.listBinDirectories();
+  }
+
   @Get('my')
   @Roles(UserRole.ADMIN)
   getMyInstances(@Request() req) {

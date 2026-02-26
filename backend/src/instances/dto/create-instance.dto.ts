@@ -17,6 +17,10 @@ export class CreateInstanceDto {
   @IsOptional()
   containerDirectory?: string;
 
+  @IsString()
+  @IsOptional()
+  binHostDirectory?: string;
+
   @IsNumber()
   @IsOptional()
   cfgTemplateId?: number;
