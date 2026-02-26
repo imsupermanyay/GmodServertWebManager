@@ -34,11 +34,13 @@ export class DockerService {
         ExposedPorts: {
           '27015/udp': {},
           '27015/tcp': {},
+          '27005/udp': {},
         },
         HostConfig: {
           PortBindings: {
             '27015/udp': [{ HostPort: '0' }], // 自动分配端口
             '27015/tcp': [{ HostPort: '0' }],
+            '27005/udp': [{ HostPort: '0' }], // Steam Master Server 通信端口
           },
           RestartPolicy: {
             Name: 'unless-stopped',
