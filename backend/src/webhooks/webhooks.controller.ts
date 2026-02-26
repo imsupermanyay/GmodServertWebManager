@@ -14,6 +14,7 @@ import { UserRole } from '../common/enums';
 
 const execAsync = promisify(exec);
 const BASE_REPO_DIR = '/opt/allgamemodes';
+const EXEC_OPTIONS = { maxBuffer: 50 * 1024 * 1024 }; // 50MB
 
 @Controller('webhooks')
 export class WebhooksController {
@@ -232,7 +233,7 @@ export class WebhooksController {
       );
 
       // 检查是否有更改需要提交
-      const { stdout: statusOutput } = await execAsync(`git -C "${devDir}" status --porcelain`);
+      const { stdout: statusOutput } = await execAsync(`git -C "${devDir}" status --porcelain`, EXEC_OPTIONS);
       if (!statusOutput.trim()) {
         console.log(`[Webhook][${repositoryName}] No changes to commit in dev repository`);
         await this.updateSyncLog(syncLog.id, SyncStatus.SUCCESS, '同步成功（无更改）', null);
@@ -275,7 +276,7 @@ export class WebhooksController {
 
   private async runGitCommand(command: string, repositoryName: string) {
     console.log(`[Webhook][${repositoryName}] Executing command: ${command}`);
-    const { stdout, stderr } = await execAsync(command);
+    const { stdout, stderr } = await execAsync(command, EXEC_OPTIONS);
     if (stdout) {
       console.log(`[Webhook][${repositoryName}] git stdout:\n${stdout}`);
     }
