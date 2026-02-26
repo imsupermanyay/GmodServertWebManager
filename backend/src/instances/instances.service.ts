@@ -269,10 +269,13 @@ export class InstancesService implements OnModuleInit {
       Binds: binds,
     };
 
-    // 如果指定了端口，传递给 Docker
-    if (createInstanceDto.port) {
-      dockerOptions.port = createInstanceDto.port;
+    // 如果没有指定端口，自动分配
+    if (!createInstanceDto.port) {
+      const allocatedPort = await this.allocatePort();
+      createInstanceDto.port = allocatedPort;
+      console.log('[创建实例] 自动分配端口:', allocatedPort);
     }
+    dockerOptions.port = createInstanceDto.port;
     console.log('[创建实例] port 参数:', createInstanceDto.port);
     console.log('[创建实例] dockerOptions:', JSON.stringify(dockerOptions));
 
@@ -782,6 +785,28 @@ export class InstancesService implements OnModuleInit {
     if ((status || '').toLowerCase() !== 'running') {
       throw new ConflictException('容器未运行，无法执行该操作');
     }
+  }
+
+  private async allocatePort(): Promise<number> {
+    const BASE_PORT = 27015;
+    const PORT_STEP = 2; // 每个实例占 2 个端口（游戏端口 + 客户端端口）
+
+    const instances = await this.instancesRepository.find({
+      select: ['port'],
+    });
+
+    const usedPorts = new Set(
+      instances.map(i => i.port).filter(p => p != null),
+    );
+
+    let port = BASE_PORT;
+    while (usedPorts.has(port)) {
+      port += PORT_STEP;
+    }
+
+    console.log('[端口分配] 已占用端口:', Array.from(usedPorts).sort());
+    console.log('[端口分配] 分配端口:', port);
+    return port;
   }
 
   private async getStartupArgs(instance: Instance): Promise<string> {
