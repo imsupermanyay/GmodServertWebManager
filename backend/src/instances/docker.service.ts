@@ -24,6 +24,11 @@ export class DockerService {
       await this.ensureImageAvailable(normalizedImage);
       console.log('[Docker] 镜像已就绪:', normalizedImage);
 
+      // 端口配置：如果传入了 port 则使用固定端口，否则自动分配
+      // 游戏端口 = port, 客户端端口 = port + 1
+      const hostPort = options?.port ? String(options.port) : '0';
+      const clientPort = options?.port ? String(options.port + 1) : '0';
+
       // 基础配置
       const containerConfig: any = {
         name: `gmod_${name}`,
@@ -38,9 +43,9 @@ export class DockerService {
         },
         HostConfig: {
           PortBindings: {
-            '27015/udp': [{ HostPort: '0' }], // 自动分配端口
-            '27015/tcp': [{ HostPort: '0' }],
-            '27005/udp': [{ HostPort: '0' }], // Steam Master Server 通信端口
+            '27015/udp': [{ HostPort: hostPort }],
+            '27015/tcp': [{ HostPort: hostPort }],
+            '27005/udp': [{ HostPort: clientPort }],
           },
           RestartPolicy: {
             Name: 'unless-stopped',

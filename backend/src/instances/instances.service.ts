@@ -269,6 +269,11 @@ export class InstancesService implements OnModuleInit {
       Binds: binds,
     };
 
+    // 如果指定了端口，传递给 Docker
+    if (createInstanceDto.port) {
+      dockerOptions.port = createInstanceDto.port;
+    }
+
     // 设置 Docker 启动命令（默认下载 GMOD 4020）
     // 这个命令会在容器启动时执行，用于初始化环境
     const defaultDockerCmd = `

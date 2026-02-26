@@ -45,6 +45,9 @@ export class Instance {
   customCfg: string;
 
   @Column({ nullable: true })
+  port: number;
+
+  @Column({ nullable: true })
   gamemodeId: number;
 
   @Column({ nullable: true })

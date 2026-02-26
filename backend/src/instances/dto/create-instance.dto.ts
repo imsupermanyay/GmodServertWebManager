@@ -32,4 +32,8 @@ export class CreateInstanceDto {
   @IsString()
   @IsOptional()
   customCfg?: string;
+
+  @IsNumber()
+  @IsOptional()
+  port?: number;
 }
