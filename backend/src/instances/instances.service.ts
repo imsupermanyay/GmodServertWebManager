@@ -256,6 +256,13 @@ export class InstancesService implements OnModuleInit {
 
     if (createInstanceDto.hostDirectory && createInstanceDto.containerDirectory) {
       binds.push(`${createInstanceDto.hostDirectory}:${createInstanceDto.containerDirectory}`);
+
+      // 用空的 tmpfs 遮盖 .git 目录，防止 git pull 时 .git 内部的文件变化
+      // 触发 Gmod 的文件监控导致无限热重载
+      if (!dockerOptions.HostConfig) dockerOptions.HostConfig = {};
+      dockerOptions.HostConfig.Tmpfs = {
+        [`${createInstanceDto.containerDirectory}/.git`]: 'rw,noexec,nosuid,size=1m',
+      };
     }
 
     // 挂载 bin 目录 (mysqloo 等二进制模块)

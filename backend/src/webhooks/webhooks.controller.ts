@@ -203,56 +203,66 @@ export class WebhooksController {
         return;
       }
 
-      console.log(`[Webhook][${repositoryName}] Cleaning dev directory (keeping .git)...`);
+      // === 在临时目录中完成所有合并和 git 操作，避免在容器挂载目录上产生海量文件事件 ===
+      const stagingDir = `${devDir}_staging`;
+
+      // 清理可能残留的 staging 目录
+      await this.runGitCommand(`rm -rf "${stagingDir}"`, repositoryName);
+
+      // 复制 devDir 到 staging（包括 .git）
+      console.log(`[Webhook][${repositoryName}] Creating staging directory...`);
+      await this.runGitCommand(`cp -a "${devDir}" "${stagingDir}"`, repositoryName);
+
+      // 在 staging 目录中执行所有操作
+      console.log(`[Webhook][${repositoryName}] Cleaning staging directory (keeping .git)...`);
       await this.runGitCommand(
-        `find "${devDir}" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +`,
+        `find "${stagingDir}" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +`,
         repositoryName,
       );
 
-      // Sync core/build contents into the dev repository
-      // Sync build first, then overlay core so core wins conflicts
-      console.log(`[Webhook][${repositoryName}] Syncing build directory into dev root...`);
+      console.log(`[Webhook][${repositoryName}] Syncing build directory into staging...`);
       await this.runGitCommand(
-        `rsync -a --delete --exclude '.git/' --exclude '.git' "${buildDir}/" "${devDir}/"`,
+        `rsync -a --delete --exclude '.git/' --exclude '.git' "${buildDir}/" "${stagingDir}/"`,
         repositoryName,
       );
 
-      console.log(`[Webhook][${repositoryName}] Overlaying core directory into dev root...`);
+      console.log(`[Webhook][${repositoryName}] Overlaying core directory into staging...`);
       await this.runGitCommand(
-        `rsync -a --exclude '.git/' --exclude '.git' "${coreDir}/" "${devDir}/"`,
+        `rsync -a --exclude '.git/' --exclude '.git' "${coreDir}/" "${stagingDir}/"`,
         repositoryName,
       );
 
-      // 提交并推送到 dev 仓库
-      console.log(`[Webhook][${repositoryName}] Committing changes to dev repository...`);
+      // 在 staging 中完成 git 操作
+      console.log(`[Webhook][${repositoryName}] Committing changes in staging...`);
+      await this.runGitCommand(`git -C "${stagingDir}" add -A`, repositoryName);
 
-      // 添加所有更改
-      await this.runGitCommand(
-        `git -C "${devDir}" add -A`,
-        repositoryName,
-      );
-
-      // 检查是否有更改需要提交
-      const { stdout: statusOutput } = await execAsync(`git -C "${devDir}" status --porcelain`, EXEC_OPTIONS);
+      const { stdout: statusOutput } = await execAsync(`git -C "${stagingDir}" status --porcelain`, EXEC_OPTIONS);
       if (!statusOutput.trim()) {
         console.log(`[Webhook][${repositoryName}] No changes to commit in dev repository`);
+        await this.runGitCommand(`rm -rf "${stagingDir}"`, repositoryName);
         await this.updateSyncLog(syncLog.id, SyncStatus.SUCCESS, '同步成功（无更改）', null);
         return;
       }
 
-      // 提交更改
       const commitMessage = `Auto-sync from ${gamemodeName}_core at ${new Date().toISOString()}`;
       await this.runGitCommand(
-        `git -C "${devDir}" commit -m "${commitMessage}"`,
+        `git -C "${stagingDir}" commit -m "${commitMessage}"`,
         repositoryName,
       );
 
-      // 推送到远程
-      console.log(`[Webhook][${repositoryName}] Pushing to dev repository...`);
+      console.log(`[Webhook][${repositoryName}] Pushing from staging...`);
       await this.runGitCommand(
-        `git -C "${devDir}" push origin HEAD`,
+        `git -C "${stagingDir}" push origin HEAD`,
         repositoryName,
       );
+
+      // === 原子切换：用 staging 替换 devDir ===
+      // rename 是原子操作，Gmod 只会看到一次目录变化
+      const oldDir = `${devDir}_old`;
+      console.log(`[Webhook][${repositoryName}] Atomic swap: staging -> dev...`);
+      await this.runGitCommand(`rm -rf "${oldDir}"`, repositoryName);
+      await this.runGitCommand(`mv "${devDir}" "${oldDir}" && mv "${stagingDir}" "${devDir}"`, repositoryName);
+      await this.runGitCommand(`rm -rf "${oldDir}"`, repositoryName);
 
       console.log(`[Webhook][${repositoryName}] ✅ Successfully synced to dev repository!`);
       await this.updateSyncLog(syncLog.id, SyncStatus.SUCCESS, '同步成功', null);
