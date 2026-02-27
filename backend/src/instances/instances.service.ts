@@ -8,11 +8,12 @@ import { DockerService } from './docker.service';
 import { InstanceStatus, UserRole } from '../common/enums';
 import { CfgTemplate } from '../config-templates/entities/cfg-template.entity';
 import { StartupOption } from '../config-templates/entities/startup-option.entity';
-import { InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { InternalServerErrorException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { promises as fs, Dirent, createReadStream } from 'fs';
 import * as path from 'path';
 import { Gamemode } from '../gamemodes/entities/gamemode.entity';
 import archiver from 'archiver';
+import { InstancesGateway } from './instances.gateway';
 
 @Injectable()
 export class InstancesService implements OnModuleInit {
@@ -26,12 +27,15 @@ export class InstancesService implements OnModuleInit {
     @InjectRepository(Gamemode)
     private gamemodesRepository: Repository<Gamemode>,
     private dockerService: DockerService,
+    @Inject(forwardRef(() => InstancesGateway))
+    private instancesGateway: InstancesGateway,
   ) { }
 
   private readonly hostInstancesRoot = process.env.GMOD_INSTANCE_ROOT || '/opt/gmodserver';
   private readonly gamemodeRoot = process.env.GMOD_GAMEMODE_ROOT || '/opt/allgamemodes';
   private readonly dataRoot = process.env.GMOD_DATA_ROOT || '/opt/allserverdata';
   private readonly binRoot = process.env.GMOD_BIN_ROOT || '/opt/gmodbin';
+  private serverStartLock = false;
 
   async onModuleInit(): Promise<void> {
     try {
@@ -455,6 +459,9 @@ export class InstancesService implements OnModuleInit {
   async remove(id: number): Promise<void> {
     const instance = await this.findOne(id);
 
+    // 先通知 Gateway 清理该实例的 log stream 和重连 timer
+    this.instancesGateway.cleanupInstance(id);
+
     if (instance.dockerId) {
       await this.dockerService.removeContainer(instance.dockerId);
     }
@@ -522,6 +529,10 @@ export class InstancesService implements OnModuleInit {
     }
 
     await this.dockerService.stopContainer(instance.dockerId);
+
+    // 容器已停止，通知 Gateway 清理 log stream 和重连 timer
+    this.instancesGateway.cleanupInstance(id);
+
     instance.status = InstanceStatus.STOPPED;
 
     return this.instancesRepository.save(instance);
@@ -544,6 +555,24 @@ export class InstancesService implements OnModuleInit {
   }
 
   async startServer(
+    id: number,
+    userId?: number,
+    userRole?: UserRole,
+  ): Promise<{ message: string }> {
+    // 互斥锁：防止并发启动绕过单服务器限制
+    if (this.serverStartLock) {
+      throw new ConflictException('有其他服务器正在启动中，请稍后再试');
+    }
+
+    this.serverStartLock = true;
+    try {
+      return await this._startServerInternal(id, userId, userRole);
+    } finally {
+      this.serverStartLock = false;
+    }
+  }
+
+  private async _startServerInternal(
     id: number,
     userId?: number,
     userRole?: UserRole,
@@ -601,6 +630,7 @@ export class InstancesService implements OnModuleInit {
       await this.dockerService.execCommand(instance.dockerId, 'which screen > /dev/null || (apt-get update && apt-get install -y screen)', {
         cwd: '/opt/steam/',
         detach: false,
+        timeout: 120000, // apt-get 可能需要较长时间，给 2 分钟
       });
     } catch (error) {
       // 忽略错误，继续执行
@@ -1057,6 +1087,11 @@ export class InstancesService implements OnModuleInit {
         zlib: { level: 9 }
       });
 
+      archive.on('error', (err) => {
+        console.error(`压缩文件夹失败: ${err.message}`);
+        archive.destroy(err);
+      });
+
       // 添加整个目录到压缩包
       archive.directory(fullPath, false);
       archive.finalize();
@@ -1076,6 +1111,11 @@ export class InstancesService implements OnModuleInit {
     const buildDir = await this.getGamemodeBuildDir(instanceId);
     const archive = archiver('zip', {
       zlib: { level: 9 }
+    });
+
+    archive.on('error', (err) => {
+      console.error(`批量压缩失败: ${err.message}`);
+      archive.destroy(err);
     });
 
     try {
@@ -1269,6 +1309,11 @@ export class InstancesService implements OnModuleInit {
         zlib: { level: 9 }
       });
 
+      archive.on('error', (err) => {
+        console.error(`压缩文件夹失败: ${err.message}`);
+        archive.destroy(err);
+      });
+
       archive.directory(fullPath, false);
       archive.finalize();
 
@@ -1287,6 +1332,11 @@ export class InstancesService implements OnModuleInit {
     const dataDir = await this.getDataDir(instanceId);
     const archive = archiver('zip', {
       zlib: { level: 9 }
+    });
+
+    archive.on('error', (err) => {
+      console.error(`批量压缩失败: ${err.message}`);
+      archive.destroy(err);
     });
 
     try {

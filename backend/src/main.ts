@@ -123,6 +123,9 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
+  // 启用优雅关闭钩子，确保 OnModuleDestroy 等生命周期方法被调用
+  app.enableShutdownHooks();
+
   // 设置全局路由前缀
   app.setGlobalPrefix('api', { exclude: ['socket.io', 'socket.io/(.*)'] });
 

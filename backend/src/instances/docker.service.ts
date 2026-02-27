@@ -370,7 +370,7 @@ export class DockerService {
   async execCommand(
     dockerId: string,
     command: string,
-    options?: { detach?: boolean; cwd?: string },
+    options?: { detach?: boolean; cwd?: string; timeout?: number },
   ): Promise<{ output: string }> {
     try {
       const container = this.docker.getContainer(dockerId);
@@ -403,15 +403,30 @@ export class DockerService {
         return { output: '命令已在后台执行' };
       }
 
+      const timeoutMs = options?.timeout ?? 30000; // 默认 30 秒超时
+
       // 收集输出
       return new Promise((resolve, reject) => {
         let output = '';
+        let settled = false;
+
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          console.warn(`[execCommand] 命令执行超时 (${timeoutMs}ms): ${command}`);
+          stream.removeAllListeners();
+          stream.destroy();
+          resolve({ output: output || '命令执行超时' });
+        }, timeoutMs);
 
         stream.on('data', (chunk) => {
           output += chunk.toString('utf8');
         });
 
         stream.on('end', () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
           console.log('[execCommand] 命令执行完成');
           console.log(`  输出长度: ${output.length} 字节`);
           if (output) {
@@ -421,6 +436,9 @@ export class DockerService {
         });
 
         stream.on('error', (error) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
           console.error('[execCommand] 命令执行失败:', error.message);
           reject(error);
         });
@@ -608,15 +626,27 @@ export class DockerService {
       // 执行命令
       const stream = await exec.start({ Detach: false, Tty: false });
 
-      // 收集输出
+      // 收集输出（30 秒超时）
       return new Promise((resolve, reject) => {
         let output = '';
+        let settled = false;
+
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          stream.removeAllListeners();
+          stream.destroy();
+          reject(new InternalServerErrorException('读取容器文件超时'));
+        }, 30000);
 
         stream.on('data', (chunk) => {
           output += chunk.toString('utf8');
         });
 
         stream.on('end', () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
           // 移除 Docker stream header (前8个字节)
           if (output.length >= 8) {
             output = output.slice(8);
@@ -625,6 +655,9 @@ export class DockerService {
         });
 
         stream.on('error', (error) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
           reject(error);
         });
       });

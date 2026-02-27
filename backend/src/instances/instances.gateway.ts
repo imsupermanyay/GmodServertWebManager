@@ -1,6 +1,9 @@
 import {
   Logger,
   UseGuards,
+  OnModuleDestroy,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import {
   ConnectedSocket,
@@ -31,18 +34,59 @@ interface InstanceStreamRecord {
   },
 })
 @UseGuards(WsJwtGuard)
-export class InstancesGateway implements OnGatewayDisconnect {
+export class InstancesGateway implements OnGatewayDisconnect, OnModuleDestroy {
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(InstancesGateway.name);
   private readonly instanceStreams = new Map<number, InstanceStreamRecord>();
   private readonly clientSubscriptions = new Map<string, Set<number>>();
+  private readonly reconnectTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
   constructor(
+    @Inject(forwardRef(() => InstancesService))
     private readonly instancesService: InstancesService,
     private readonly dockerService: DockerService,
   ) {}
+
+  onModuleDestroy(): void {
+    this.logger.log('Module destroying, cleaning up all streams and timers...');
+
+    // 先取消所有重连 timer
+    for (const timer of this.reconnectTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.reconnectTimers.clear();
+
+    // 收集所有 instanceId 后再逐个销毁，避免遍历中修改 Map
+    const instanceIds = [...this.instanceStreams.keys()];
+    for (const instanceId of instanceIds) {
+      const record = this.instanceStreams.get(instanceId);
+      if (record) {
+        record.stream.removeAllListeners();
+        record.stream.destroy();
+      }
+    }
+
+    this.instanceStreams.clear();
+    this.clientSubscriptions.clear();
+    this.logger.log('All streams and timers cleaned up');
+  }
+
+  /**
+   * 外部调用：当实例被删除或停止时，主动清理该实例的 stream 和 timer
+   */
+  cleanupInstance(instanceId: number): void {
+    const hadStream = this.instanceStreams.has(instanceId);
+    const hadTimer = this.reconnectTimers.has(instanceId);
+
+    this.cancelReconnectTimer(instanceId);
+    this.stopStream(instanceId);
+
+    if (hadStream || hadTimer) {
+      this.logger.log(`Cleaned up instance ${instanceId} (stream=${hadStream}, timer=${hadTimer})`);
+    }
+  }
 
   async handleDisconnect(client: Socket): Promise<void> {
     this.cleanupClient(client);
@@ -261,8 +305,13 @@ export class InstancesGateway implements OnGatewayDisconnect {
       .to(this.roomName(instanceId))
       .emit('logs:disconnected', { instanceId, reason });
 
+    // 取消之前可能存在的重连 timer，避免重复
+    this.cancelReconnectTimer(instanceId);
+
     // 5秒后尝试重新连接（仅一次）
-    setTimeout(async () => {
+    const timer = setTimeout(async () => {
+      this.reconnectTimers.delete(instanceId);
+
       // 再次检查是否还有订阅者
       let stillHasSubscribers = false;
       try {
@@ -305,6 +354,8 @@ export class InstancesGateway implements OnGatewayDisconnect {
           .emit('logs:error', `重连失败: ${error.message}`);
       }
     }, 5000);
+
+    this.reconnectTimers.set(instanceId, timer);
   }
 
   private removeClientSubscription(client: Socket, instanceId: number): void {
@@ -349,6 +400,9 @@ export class InstancesGateway implements OnGatewayDisconnect {
   }
 
   private stopStream(instanceId: number): void {
+    // 取消该实例的重连 timer
+    this.cancelReconnectTimer(instanceId);
+
     const record = this.instanceStreams.get(instanceId);
     if (!record) return;
 
@@ -380,5 +434,13 @@ export class InstancesGateway implements OnGatewayDisconnect {
 
   private roomName(instanceId: number): string {
     return `instance-${instanceId}`;
+  }
+
+  private cancelReconnectTimer(instanceId: number): void {
+    const timer = this.reconnectTimers.get(instanceId);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectTimers.delete(instanceId);
+    }
   }
 }
