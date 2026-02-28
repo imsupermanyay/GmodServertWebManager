@@ -71,6 +71,10 @@ export class DockerService {
 
       const container = await this.docker.createContainer(containerConfig);
       console.log('[Docker] 容器创建成功, ID:', container.id);
+
+      // 创建后自动连接额外的 Docker 网络（如 1panel-network），使容器能访问其他服务（MySQL 等）
+      await this.connectExtraNetworks(container.id);
+
       return container.id;
     } catch (error) {
       console.error('[Docker] 创建容器失败:', error.message);
@@ -684,6 +688,28 @@ export class DockerService {
     } catch (error) {
       console.error(`删除宿主机目录失败: ${error.message}`);
       // 不抛出错误，删除目录失败不应该阻止实例删除
+    }
+  }
+
+  /**
+   * 将容器连接到环境变量 DOCKER_EXTRA_NETWORKS 指定的额外网络
+   * 格式：逗号分隔的网络名，如 "1panel-network,my-other-network"
+   */
+  private async connectExtraNetworks(dockerId: string): Promise<void> {
+    const extraNetworks = process.env.DOCKER_EXTRA_NETWORKS;
+    if (!extraNetworks) return;
+
+    const networkNames = extraNetworks.split(',').map(n => n.trim()).filter(Boolean);
+
+    for (const networkName of networkNames) {
+      try {
+        const network = this.docker.getNetwork(networkName);
+        await network.connect({ Container: dockerId });
+        console.log(`[Docker] 容器已连接到网络: ${networkName}`);
+      } catch (error) {
+        console.error(`[Docker] 连接网络 ${networkName} 失败: ${error.message}`);
+        // 不抛出异常，网络连接失败不应阻止容器创建
+      }
     }
   }
 }
