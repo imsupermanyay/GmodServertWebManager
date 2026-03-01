@@ -135,7 +135,7 @@ export class InstancesController {
   @Post(':id/files/upload')
   @UseInterceptors(FileInterceptor('file', {
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB
+      fileSize: 50 * 1024 * 1024, // 50MB
     }
   }))
   uploadFile(
@@ -153,7 +153,7 @@ export class InstancesController {
   @Post(':id/files/upload-folder')
   @UseInterceptors(FileInterceptor('file', {
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB per file
+      fileSize: 50 * 1024 * 1024, // 50MB per file
     }
   }))
   uploadFileToFolder(
@@ -231,7 +231,7 @@ export class InstancesController {
   @Post(':id/data-files/upload')
   @UseInterceptors(FileInterceptor('file', {
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB
+      fileSize: 50 * 1024 * 1024, // 50MB
     }
   }))
   uploadDataFile(
@@ -249,7 +249,7 @@ export class InstancesController {
   @Post(':id/data-files/upload-folder')
   @UseInterceptors(FileInterceptor('file', {
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB per file
+      fileSize: 50 * 1024 * 1024, // 50MB per file
     }
   }))
   uploadDataFileToFolder(

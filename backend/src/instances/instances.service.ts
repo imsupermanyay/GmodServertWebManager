@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException, ConflictException, ForbiddenException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Instance } from './entities/instance.entity';
@@ -987,10 +987,10 @@ export class InstancesService implements OnModuleInit {
       throw new BadRequestException('文件内容为空');
     }
 
-    // 检查文件大小限制 (10MB)
-    const maxSize = 10 * 1024 * 1024;
+    // 检查文件大小限制 (50MB)
+    const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      throw new BadRequestException('文件大小不能超过 10MB');
+      throw new BadRequestException('文件大小不能超过 50MB');
     }
 
     const buildDir = await this.getGamemodeBuildDir(instanceId);
@@ -1021,10 +1021,10 @@ export class InstancesService implements OnModuleInit {
       throw new BadRequestException('文件内容为空');
     }
 
-    // 检查文件大小限制 (10MB)
-    const maxSize = 10 * 1024 * 1024;
+    // 检查文件大小限制 (50MB)
+    const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      throw new BadRequestException('文件大小不能超过 10MB');
+      throw new BadRequestException('文件大小不能超过 50MB');
     }
 
     const buildDir = await this.getGamemodeBuildDir(instanceId);
@@ -1213,9 +1213,9 @@ export class InstancesService implements OnModuleInit {
       throw new BadRequestException('文件内容为空');
     }
 
-    const maxSize = 10 * 1024 * 1024;
+    const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      throw new BadRequestException('文件大小不能超过 10MB');
+      throw new BadRequestException('文件大小不能超过 50MB');
     }
 
     const dataDir = await this.getDataDir(instanceId);
@@ -1246,9 +1246,9 @@ export class InstancesService implements OnModuleInit {
       throw new BadRequestException('文件内容为空');
     }
 
-    const maxSize = 10 * 1024 * 1024;
+    const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      throw new BadRequestException('文件大小不能超过 10MB');
+      throw new BadRequestException('文件大小不能超过 50MB');
     }
 
     const dataDir = await this.getDataDir(instanceId);

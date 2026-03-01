@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="relative flex flex-col gap-6 h-[calc(100vh-5rem)] text-slate-100">
     <div
       v-if="showScreenOverlay"
@@ -1850,12 +1850,12 @@ const handleFileSelect = async (event) => {
   if (files.length === 0) return
 
   // 检查文件大小
-  const maxSize = 10 * 1024 * 1024 // 10MB
+  const maxSize = 50 * 1024 * 1024 // 50MB
   const oversizedFiles = files.filter(f => f.size > maxSize)
 
   if (oversizedFiles.length > 0) {
     notifications.error(
-      `以下文件超过 10MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
+      `以下文件超过 50MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
       { title: '文件上传' }
     )
     if (fileInput.value) {
@@ -1876,12 +1876,12 @@ const handleFolderSelect = async (event) => {
   if (files.length === 0) return
 
   // 检查每个文件大小
-  const maxSize = 10 * 1024 * 1024 // 10MB
+  const maxSize = 50 * 1024 * 1024 // 50MB
   const oversizedFiles = files.filter(f => f.size > maxSize)
 
   if (oversizedFiles.length > 0) {
     notifications.error(
-      `以下文件超过 10MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
+      `以下文件超过 50MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
       { title: '文件上传' }
     )
     if (folderInput.value) {
@@ -2181,12 +2181,12 @@ const handleDataFileSelect = async (event) => {
   if (files.length === 0) return
 
   // 检查文件大小
-  const maxSize = 10 * 1024 * 1024 // 10MB
+  const maxSize = 50 * 1024 * 1024 // 50MB
   const oversizedFiles = files.filter(f => f.size > maxSize)
 
   if (oversizedFiles.length > 0) {
     notifications.error(
-      `以下文件超过 10MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
+      `以下文件超过 50MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
       { title: 'Data 文件上传' }
     )
     if (dataFileInput.value) {
@@ -2207,12 +2207,12 @@ const handleDataFolderSelect = async (event) => {
   if (files.length === 0) return
 
   // 检查每个文件大小
-  const maxSize = 10 * 1024 * 1024 // 10MB
+  const maxSize = 50 * 1024 * 1024 // 50MB
   const oversizedFiles = files.filter(f => f.size > maxSize)
 
   if (oversizedFiles.length > 0) {
     notifications.error(
-      `以下文件超过 10MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
+      `以下文件超过 50MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
       { title: 'Data 文件上传' }
     )
     if (dataFolderInput.value) {
